@@ -1,0 +1,7 @@
+*.user
+build-*
+bin
+.DS_Store
+*.xlsx
+*.o
+*.so
