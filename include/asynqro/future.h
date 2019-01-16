@@ -34,6 +34,7 @@
 #include "asynqro/impl/zipfutures.h"
 
 #include <QCoreApplication>
+#include <QMutex>
 #include <QThread>
 #include <QTime>
 #include <QVariant>

@@ -1,0 +1,22 @@
+dist: xenial
+language: cpp
+compiler: clang
+addons:
+  apt:
+    update: true
+    sources:
+    - ubuntu-toolchain-r-test
+    - sourceline: 'ppa:beineri/opt-qt-5.12.0-xenial'
+    packages:
+    - qt512base
+    - libstdc++-7-dev
+
+before_script:
+- source /opt/qt512/bin/qt512-env.sh
+
+script:
+- mkdir build
+- cd build
+- cmake -DCMAKE_PREFIX_PATH=/opt/qt512 -DCMAKE_BUILD_TYPE=Release -DASYNQRO_BUILD_TESTS=ON ..
+- cmake --build . --target all -- -j4
+- cmake --build . --target test

@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/dkormalev/asynqro.svg?branch=master)](https://travis-ci.com/dkormalev/asynqro)
+
 # Asynqro
 
 Asynqro is a small library with purpose to make C++/Qt programming easier by giving developers rich  monadic Future API (mostly inspired by Future API in Scala language). This library is another implementation of ideas in https://github.com/opensoft/proofseed, but has much cleaner API, refined task scheduling logic and is not tied to any framework.

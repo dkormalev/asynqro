@@ -9,15 +9,16 @@ class TasksTest : public TasksBaseTest
 TEST_F(TasksTest, capacities)
 {
     auto dispatcher = TasksDispatcher::instance();
-    EXPECT_GE(dispatcher->capacity(), dispatcher->subPoolCapacity(TaskType::Intensive));
-    EXPECT_GE(dispatcher->subPoolCapacity(TaskType::Custom, 1), dispatcher->subPoolCapacity(TaskType::Intensive));
-    EXPECT_GE(dispatcher->capacity(), dispatcher->subPoolCapacity(TaskType::Custom, 1));
+    EXPECT_GT(dispatcher->capacity(), dispatcher->subPoolCapacity(TaskType::Intensive));
+    EXPECT_EQ(dispatcher->subPoolCapacity(TaskType::Custom, 1), dispatcher->subPoolCapacity(TaskType::Intensive));
+    EXPECT_GT(dispatcher->capacity(), dispatcher->subPoolCapacity(TaskType::Custom, 1));
     EXPECT_EQ(dispatcher->capacity(), dispatcher->subPoolCapacity(TaskType::Custom));
     EXPECT_EQ(dispatcher->capacity(), dispatcher->subPoolCapacity(TaskType::Custom, 0));
-    EXPECT_NE(2, dispatcher->subPoolCapacity(TaskType::Custom, 42));
-    dispatcher->addCustomTag(42, 2);
-    EXPECT_EQ(2, dispatcher->subPoolCapacity(TaskType::Custom, 42));
-    EXPECT_GE(dispatcher->capacity(), dispatcher->subPoolCapacity(TaskType::ThreadBound));
+    qint32 customLimit = dispatcher->subPoolCapacity(TaskType::Intensive) * 3;
+    EXPECT_NE(customLimit, dispatcher->subPoolCapacity(TaskType::Custom, 42));
+    dispatcher->addCustomTag(42, customLimit);
+    EXPECT_EQ(customLimit, dispatcher->subPoolCapacity(TaskType::Custom, 42));
+    EXPECT_GT(dispatcher->capacity(), dispatcher->subPoolCapacity(TaskType::ThreadBound));
 }
 
 TEST_F(TasksTest, singleTask)
