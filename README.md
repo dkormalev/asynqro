@@ -1,4 +1,6 @@
 [![Build Status](https://travis-ci.com/dkormalev/asynqro.svg?branch=master)](https://travis-ci.com/dkormalev/asynqro)
+[![codecov](https://codecov.io/gh/dkormalev/asynqro/branch/master/graph/badge.svg)](https://codecov.io/gh/dkormalev/asynqro)
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 # Asynqro
 

@@ -1,6 +1,5 @@
 dist: xenial
 language: cpp
-compiler: clang
 addons:
   apt:
     update: true
@@ -10,13 +9,48 @@ addons:
     packages:
     - qt512base
     - libstdc++-7-dev
+    - gcc-7
+    - g++-7
+    - lcov
 
 before_script:
 - source /opt/qt512/bin/qt512-env.sh
+- sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 90
+- sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 90
+- sudo update-alternatives --install /usr/bin/gcov gcov /usr/bin/gcov-7 90
 
-script:
-- mkdir build
-- cd build
-- cmake -DCMAKE_PREFIX_PATH=/opt/qt512 -DCMAKE_BUILD_TYPE=Release -DASYNQRO_BUILD_TESTS=ON ..
-- cmake --build . --target all -- -j4
-- cmake --build . --target test
+jobs:
+  include:
+  - &main
+    name: Compilation & tests (Release, clang 7)
+    compiler: clang
+    script:
+    - mkdir build
+    - cd build
+    - cmake -DCMAKE_PREFIX_PATH=/opt/qt512 -DCMAKE_BUILD_TYPE=Release -DASYNQRO_BUILD_TESTS=ON .. || travis_terminate 1
+    - cmake --build . --target all -- -j4 || travis_terminate 1
+    - cmake --build . --target test
+  - <<: *main
+    name: Compilation & tests (Release, gcc 7)
+    compiler: gcc
+    script:
+    - mkdir build
+    - cd build
+    - cmake -DCMAKE_PREFIX_PATH=/opt/qt512 -DCMAKE_BUILD_TYPE=Release -DASYNQRO_BUILD_TESTS=ON .. || travis_terminate 1
+    - cmake --build . --target all -- -j4 || travis_terminate 1
+    - cmake --build . --target test
+  - <<: *main
+    name: Code coverage calculation (Debug, gcc 7)
+    compiler: gcc
+    script:
+    - mkdir build
+    - cd build
+    - cmake -DCMAKE_PREFIX_PATH=/opt/qt512 -DCMAKE_BUILD_TYPE=Debug -DASYNQRO_BUILD_TESTS=ON -DASYNQRO_BUILD_WITH_GCOV=ON .. || travis_terminate 1
+    - cmake --build . --target all -- -j4 || travis_terminate 1
+    - cmake --build . --target test || true
+    - cd ..
+    - lcov --no-external --capture --directory . --output-file coverage.info || travis_terminate 1
+    - lcov --extract coverage.info '*/asynqro/include/*' '*/asynqro/src/*' --output-file coverage.info || travis_terminate 1
+    - lcov --list coverage.info
+    after_success:
+    - bash <(curl -s https://codecov.io/bash) -f coverage.info

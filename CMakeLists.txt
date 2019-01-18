@@ -3,9 +3,23 @@ project(asynqro LANGUAGES CXX VERSION 0.1.0)
 include(GenerateExportHeader)
 
 option(ASYNQRO_BUILD_TESTS
-    "Build tests or not at asynqro build. Will download googletest from github during configure time and build it with tests"
+    "Build tests. Will download googletest from github during configure time and build it with tests"
     ON
 )
+
+option(ASYNQRO_BUILD_WITH_GCOV
+    "Build with gcov support. Enables ASYNQRO_BUILD_TESTS"
+    OFF
+)
+
+if (ASYNQRO_BUILD_WITH_GCOV)
+    message("-- asynqro: Building with gcov support")
+    set(CMAKE_CXX_FLAGS "-g -O0 --coverage")
+    set(CMAKE_EXE_LINKER_FLAGS "--coverage")
+    set(CMAKE_SHARED_LINKER_FLAGS "--coverage")
+    set(CMAKE_CXX_OUTPUT_EXTENSION_REPLACE ON)
+    set(ASYNQRO_BUILD_TESTS ON)
+endif()
 
 find_package(Qt5Core CONFIG REQUIRED)
 
@@ -82,12 +96,7 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/cmake/asynqro-config.cmake
 )
 
 if(ASYNQRO_BUILD_TESTS)
+    message("-- asynqro: Building with tests")
     enable_testing()
     add_subdirectory(tests)
 endif()
-
-# TODO: add gcov/codecov support
-#set(CMAKE_CXX_FLAGS "-g -O0 --coverage")
-#set(CMAKE_EXE_LINKER_FLAGS "--coverage")
-#set(CMAKE_SHARED_LINKER_FLAGS "--coverage")
-#set(CMAKE_CXX_OUTPUT_EXTENSION_REPLACE ON)
