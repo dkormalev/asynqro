@@ -14,11 +14,46 @@ TEST_F(TasksTest, capacities)
     EXPECT_GT(dispatcher->capacity(), dispatcher->subPoolCapacity(TaskType::Custom, 1));
     EXPECT_EQ(dispatcher->capacity(), dispatcher->subPoolCapacity(TaskType::Custom));
     EXPECT_EQ(dispatcher->capacity(), dispatcher->subPoolCapacity(TaskType::Custom, 0));
+}
+
+TEST_F(TasksTest, changeCapacities)
+{
+    auto dispatcher = TasksDispatcher::instance();
+
+    qint32 oldCapacity = dispatcher->capacity();
+    qint32 newCapacity = oldCapacity + 10;
+    dispatcher->setCapacity(newCapacity);
+    ASSERT_EQ(newCapacity, dispatcher->capacity());
+    dispatcher->setCapacity(oldCapacity);
+    ASSERT_EQ(oldCapacity, dispatcher->capacity());
+
+    oldCapacity = dispatcher->subPoolCapacity(TaskType::ThreadBound);
+    newCapacity = oldCapacity + 2;
+    dispatcher->setBoundCapacity(newCapacity);
+    ASSERT_EQ(newCapacity, dispatcher->subPoolCapacity(TaskType::ThreadBound));
+    dispatcher->setBoundCapacity(oldCapacity);
+    ASSERT_EQ(oldCapacity, dispatcher->subPoolCapacity(TaskType::ThreadBound));
+
     qint32 customLimit = dispatcher->subPoolCapacity(TaskType::Intensive) * 3;
     EXPECT_NE(customLimit, dispatcher->subPoolCapacity(TaskType::Custom, 42));
     dispatcher->addCustomTag(42, customLimit);
     EXPECT_EQ(customLimit, dispatcher->subPoolCapacity(TaskType::Custom, 42));
     EXPECT_GT(dispatcher->capacity(), dispatcher->subPoolCapacity(TaskType::ThreadBound));
+
+    EXPECT_EQ(dispatcher->capacity(), dispatcher->subPoolCapacity(TaskType::Custom, -5));
+    dispatcher->addCustomTag(-5, customLimit);
+    EXPECT_EQ(dispatcher->capacity(), dispatcher->subPoolCapacity(TaskType::Custom, -5));
+}
+
+TEST_F(TasksTest, changeIdleLoopsAmount)
+{
+    auto dispatcher = TasksDispatcher::instance();
+    qint32 oldIdleLoops = dispatcher->idleLoopsAmount();
+    qint32 newIdleLoops = oldIdleLoops + 20000;
+    dispatcher->setIdleLoopsAmount(newIdleLoops);
+    ASSERT_EQ(newIdleLoops, dispatcher->idleLoopsAmount());
+    dispatcher->setIdleLoopsAmount(oldIdleLoops);
+    ASSERT_EQ(oldIdleLoops, dispatcher->idleLoopsAmount());
 }
 
 TEST_F(TasksTest, singleTask)
@@ -195,6 +230,36 @@ TEST_F(TasksTest, multipleTasks)
 
 TEST_F(TasksTest, multipleTasksOverCapacity)
 {
+    std::atomic_bool ready{false};
+    std::atomic_int runCounter{0};
+    int n = TasksDispatcher::instance()->capacity() * 2;
+    QVector<Future<int>> results;
+    for (int i = 0; i < n; ++i) {
+        results << run(TaskType::Custom, 0, [&ready, &runCounter, i]() {
+            ++runCounter;
+            while (!ready)
+                ;
+            return i * 2;
+        });
+    }
+    QTime timeout;
+    timeout.start();
+    while (runCounter < TasksDispatcher::instance()->capacity() && timeout.elapsed() < 1000)
+        ;
+    QThread::msleep(25);
+    EXPECT_EQ(TasksDispatcher::instance()->capacity(), runCounter);
+    for (int i = 0; i < n; ++i)
+        EXPECT_FALSE(results[i].isCompleted());
+    ready = true;
+    for (int i = 0; i < n; ++i)
+        EXPECT_EQ(i * 2, results[i].result());
+}
+
+TEST_F(TasksTest, multipleTasksOverChangedCapacity)
+{
+    qint32 newCapacity = TasksDispatcher::instance()->capacity() + 10;
+    TasksDispatcher::instance()->setCapacity(newCapacity);
+    ASSERT_EQ(newCapacity, TasksDispatcher::instance()->capacity());
     std::atomic_bool ready{false};
     std::atomic_int runCounter{0};
     int n = TasksDispatcher::instance()->capacity() * 2;

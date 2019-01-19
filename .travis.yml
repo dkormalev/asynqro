@@ -13,6 +13,10 @@ addons:
     - g++-7
     - lcov
 
+env:
+  global:
+  - CTEST_OUTPUT_ON_FAILURE=1
+
 before_script:
 - source /opt/qt512/bin/qt512-env.sh
 - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 90
@@ -49,8 +53,8 @@ jobs:
     - cmake --build . --target all -- -j4 || travis_terminate 1
     - cmake --build . --target test || true
     - cd ..
-    - lcov --no-external --capture --directory . --output-file coverage.info || travis_terminate 1
-    - lcov --extract coverage.info '*/asynqro/include/*' '*/asynqro/src/*' --output-file coverage.info || travis_terminate 1
+    - lcov --no-external --capture --directory . --output-file coverage_all.info || travis_terminate 1
+    - lcov --extract coverage_all.info '*/asynqro/include/*' '*/asynqro/src/*' --output-file coverage.info || travis_terminate 1
     - lcov --list coverage.info
     after_success:
     - bash <(curl -s https://codecov.io/bash) -f coverage.info

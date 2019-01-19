@@ -260,3 +260,22 @@ TYPED_TEST(UnorderedContainersTraverseFlattenTest, flattenShort)
     for (int i = 0; i < 9; ++i)
         EXPECT_EQ(i + 1, converted[i]) << i;
 }
+
+TEST(ContainersTraverseFlattenExtraTest, flattenShortWithBigInput)
+{
+    QVector<QVector<int>> testContainer;
+    testContainer.reserve(500);
+    int last = 0;
+    for (int i = 0; i < 500; ++i) {
+        int size = i % 10;
+        QVector<int> inner;
+        inner.reserve(size);
+        for (int j = 0; j < size; ++j)
+            inner << ++last;
+        testContainer << inner;
+    }
+    QVector<int> result = traverse::flatten(testContainer);
+    ASSERT_EQ(last, result.size());
+    for (int i = 0; i < last; ++i)
+        EXPECT_EQ(i + 1, result[i]) << i;
+}

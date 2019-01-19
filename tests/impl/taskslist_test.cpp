@@ -57,9 +57,17 @@ TEST_P(SizesTasksListTest, iteratorIncrement)
     auto it = list.begin();
     for (int i = 0; i < size; ++i) {
         EXPECT_NE(list.end(), it);
+        EXPECT_TRUE(it->isValid());
+        EXPECT_NE(&TaskInfo::empty(), &*it);
         ++it;
     }
     EXPECT_EQ(list.end(), it);
+    EXPECT_FALSE(it->isValid());
+    EXPECT_EQ(&TaskInfo::empty(), &*it);
+    ++it;
+    EXPECT_EQ(list.end(), it);
+    EXPECT_FALSE(it->isValid());
+    EXPECT_EQ(&TaskInfo::empty(), &*it);
 }
 
 // clang-format off
@@ -138,4 +146,5 @@ TEST(TasksListTest, sizeAndEmptiness)
     }
     EXPECT_EQ(0, list.size());
     EXPECT_TRUE(list.empty());
+    EXPECT_EQ(list.end(), list.erase(list.end()));
 }

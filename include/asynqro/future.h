@@ -175,7 +175,7 @@ public:
         return d->state.load(std::memory_order_acquire) == detail::FutureState::SucceededFuture;
     }
 
-    bool isValid() const noexcept { return d; }
+    bool isValid() const noexcept { return static_cast<bool>(d); }
 
     bool wait(long long timeout = -1) const noexcept
     {

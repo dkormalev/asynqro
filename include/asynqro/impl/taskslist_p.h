@@ -139,19 +139,16 @@ public:
 
     iterator begin()
     {
-        if (empty())
-            return end();
-        for (auto mapIt = m_lists.begin(); mapIt != m_lists.end(); ++mapIt) {
-            if (!mapIt->second.empty())
-                return iterator{this, mapIt, mapIt->second.begin()};
+        if (!empty()) {
+            for (auto mapIt = m_lists.begin(); mapIt != m_lists.end(); ++mapIt) {
+                if (!mapIt->second.empty())
+                    return iterator{this, mapIt, mapIt->second.begin()};
+            }
         }
         return end();
     }
 
     iterator end() { return iterator{this, m_lists.end(), List::iterator()}; }
-
-    //    iterator begin() const { return cbegin(); }
-    //    iterator end() const { return cend(); }
 
 private:
     Map m_lists;

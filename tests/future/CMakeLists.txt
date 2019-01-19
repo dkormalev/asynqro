@@ -5,7 +5,7 @@ find_package(Qt5Core CONFIG REQUIRED)
 
 add_executable(asynqro_future_tests
     main.cpp
-    future_create_test.cpp
+    future_basics_test.cpp
     common_future_callbacks_test.cpp
     future_callbacks_test.cpp
     cancelablefuture_callbacks_test.cpp

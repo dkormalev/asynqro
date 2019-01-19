@@ -23,6 +23,26 @@ TEST_F(FutureExceptionsTest, onFailureException)
     EXPECT_EQ("failed", result.toString());
 }
 
+TEST_F(FutureExceptionsTest, onSuccessPostException)
+{
+    Promise<int> promise;
+    int result = 0;
+    promise.success(42);
+    promise.future().onSuccess([](int) { throw std::runtime_error("Hi"); }).onSuccess([&result](int x) { result = x; });
+    EXPECT_EQ(42, result);
+}
+
+TEST_F(FutureExceptionsTest, onFailurePostException)
+{
+    Promise<int> promise;
+    QVariant result;
+    promise.failure("failed");
+    promise.future().onFailure([](QVariant) { throw std::runtime_error("Hi"); }).onFailure([&result](QVariant x) {
+        result = x;
+    });
+    EXPECT_EQ("failed", result.toString());
+}
+
 TEST_F(FutureExceptionsTest, mapException)
 {
     Promise<int> promise;

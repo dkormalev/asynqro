@@ -141,9 +141,17 @@ auto run(const C<T> &data, Task &&f, TaskType type = TaskType::Intensive, qint32
     return Helper::finalizeResult(Future<>::sequence(futures));
 }
 
+template <template <typename...> typename C, typename T, typename Task>
+auto clusteredRun(const C<T> &data, Task &&f, qint64 minClusterSize = 1, TaskType type = TaskType::Intensive,
+                  qint32 tag = 0, TaskPriority priority = TaskPriority::Regular) noexcept
+{
+    C<T> dataCopy = data;
+    return clusteredRun(std::move(dataCopy), std::forward<Task>(f), minClusterSize, type, tag, priority);
+}
+
 template <template <typename...> typename C, typename T, typename Task,
           typename Result = C<typename std::invoke_result_t<Task, T>>>
-Future<Result> clusteredRun(const C<T> &data, Task &&f, qint64 minClusterSize = 1, TaskType type = TaskType::Intensive,
+Future<Result> clusteredRun(C<T> &&data, Task &&f, qint64 minClusterSize = 1, TaskType type = TaskType::Intensive,
                             qint32 tag = 0, TaskPriority priority = TaskPriority::Regular) noexcept
 {
     if (!data.size())
@@ -152,7 +160,7 @@ Future<Result> clusteredRun(const C<T> &data, Task &&f, qint64 minClusterSize = 
         minClusterSize = 1;
 
     return TasksDispatcher::instance()->run(
-        [data, f = std::forward<Task>(f), minClusterSize, type, tag, priority]() -> Result {
+        [data = std::forward<C<T>>(data), f = std::forward<Task>(f), minClusterSize, type, tag, priority]() -> Result {
             qint64 amount = data.count();
             qint32 capacity = TasksDispatcher::instance()->subPoolCapacity(type, tag);
             capacity = qMin(static_cast<qint32>(ceil(amount / static_cast<double>(minClusterSize))), capacity);
