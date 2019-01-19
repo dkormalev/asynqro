@@ -1,6 +1,5 @@
 #include "gtest/gtest.h"
 
-#include <QCoreApplication>
 #include <QDebug>
 
 #if (defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)) || defined(Q_OS_MAC)
@@ -125,7 +124,6 @@ int main(int argc, char **argv)
     if (sigaction(SIGILL, &sigIllAction, (struct sigaction *)NULL) != 0)
         qDebug() << "No illegal instruction handler is on your back.";
 #endif
-    QCoreApplication a(argc, argv);
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

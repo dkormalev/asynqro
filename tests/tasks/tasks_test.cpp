@@ -88,6 +88,20 @@ TEST_F(TasksTest, singleVoidTask)
     EXPECT_EQ(true, flag);
 }
 
+TEST_F(TasksTest, singleRunAndForgetTask)
+{
+    Promise<TasksTestResult<int>> p;
+    runAndForget([p]() { p.success(pairedResult(42)); });
+    auto f = p.future();
+    f.wait(10000);
+    ASSERT_TRUE(f.isCompleted());
+    EXPECT_TRUE(f.isSucceeded());
+    EXPECT_FALSE(f.isFailed());
+    TasksTestResult<int> result = f.result();
+    EXPECT_NE(currentThread(), result.first);
+    EXPECT_EQ(42, result.second);
+}
+
 TEST_F(TasksTest, taskCancelation)
 {
     TasksDispatcher::instance()->addCustomTag(11, 1);

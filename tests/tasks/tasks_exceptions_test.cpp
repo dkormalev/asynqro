@@ -26,6 +26,16 @@ TEST_F(TasksExceptionsTest, singleTaskExceptionNonStd)
     EXPECT_EQ("Exception caught", future.failureReason().toString());
 }
 
+TEST_F(TasksExceptionsTest, singleRunAndForgetTaskException)
+{
+    runAndForget([]() { throw std::runtime_error("Hi"); });
+}
+
+TEST_F(TasksExceptionsTest, singleRunAndForgetTaskExceptionNonStd)
+{
+    runAndForget([]() { throw 42; });
+}
+
 TEST_F(TasksExceptionsTest, sequenceRunException)
 {
     auto future = run(QVector<int>{1, 2, 3}, [](int) { throw std::runtime_error("Hi"); });
