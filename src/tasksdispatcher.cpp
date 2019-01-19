@@ -284,6 +284,8 @@ void TasksDispatcherPrivate::schedule(qint32 workerId)
                 if (workersBindingsCount.count(workerId)) {
                     boundWorkerId = traverse::findIf(availableWorkers,
                                                      [this](qint32 x) { return !workersBindingsCount.count(x); }, -1);
+                    if (boundWorkerId < 0 && createNewWorkerIfPossible())
+                        boundWorkerId = static_cast<qint32>(allWorkers.size()) - 1;
                 } else {
                     boundWorkerId = workerId;
                 }
