@@ -173,15 +173,22 @@ Future<Result> clusteredRun(C<T> &&data, Task &&f, qint64 minClusterSize = 1, Ta
             for (qint32 job = 0; job < capacity; ++job) {
                 futures << TasksDispatcher::instance()->run(
                     [&data, &f, &result, job, clusterSize]() {
-                        const auto right = (job + 1) * clusterSize + 1;
-                        for (qint32 i = job * clusterSize; i < right; ++i)
+                        const auto right = (job + 1) * clusterSize;
+                        for (qint32 i = job * clusterSize; i < right && !detail::hasLastFailure(); ++i)
                             result[i] = f(data[i]);
                     },
                     type, tag, priority);
             }
-            for (qint32 i = capacity * clusterSize; i < amount; ++i)
-                result[i] = f(data[i]);
-            QVariant localFailure = detail::lastFailure();
+            QVariant localFailure;
+            try {
+                for (qint32 i = capacity * clusterSize; i < amount && !detail::hasLastFailure(); ++i)
+                    result[i] = f(data[i]);
+                localFailure = detail::lastFailure();
+            } catch (const std::exception &e) {
+                localFailure = detail::exceptionFailure(e);
+            } catch (...) {
+                localFailure = detail::exceptionFailure();
+            }
             detail::invalidateLastFailure();
             for (const auto &future : qAsConst(futures))
                 future.wait();

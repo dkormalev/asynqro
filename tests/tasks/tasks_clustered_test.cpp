@@ -10,6 +10,7 @@ TEST_F(TasksClusteredRunTest, clusteredRun)
 {
     std::atomic_bool ready{false};
     std::atomic_int runCounter{0};
+    std::atomic_int totalCounter{0};
     SpinLock initialDataLock;
     QVector<int> initialData;
     QVector<int> input;
@@ -19,7 +20,7 @@ TEST_F(TasksClusteredRunTest, clusteredRun)
     for (int i = 0; i < n; ++i)
         input << i;
     Future<QVector<int>> future = clusteredRun(input,
-                                               [&ready, &runCounter, &initialDataLock, &initialData](int x) {
+                                               [&ready, &runCounter, &totalCounter, &initialDataLock, &initialData](int x) {
                                                    if (!ready) {
                                                        initialDataLock.lock();
                                                        initialData << x;
@@ -28,6 +29,7 @@ TEST_F(TasksClusteredRunTest, clusteredRun)
                                                    ++runCounter;
                                                    while (!ready)
                                                        ;
+                                                   ++totalCounter;
                                                    return x * 2;
                                                },
                                                minClusterSize, TaskType::Intensive);
@@ -39,6 +41,10 @@ TEST_F(TasksClusteredRunTest, clusteredRun)
     EXPECT_EQ(capacity, runCounter);
     EXPECT_FALSE(future.isCompleted());
     ready = true;
+    future.wait(30000);
+    EXPECT_TRUE(future.isCompleted());
+    EXPECT_TRUE(future.isSucceeded());
+    EXPECT_EQ(n, totalCounter);
     auto result = future.result();
     ASSERT_EQ(n, result.count());
     for (int i = 0; i < n; ++i)
@@ -64,6 +70,7 @@ TEST_F(TasksClusteredRunTest, clusteredRunWithExtraBigCluster)
 {
     std::atomic_bool ready{false};
     std::atomic_int runCounter{0};
+    std::atomic_int totalCounter{0};
     SpinLock initialDataLock;
     QVector<int> initialData;
     QVector<int> input;
@@ -76,7 +83,7 @@ TEST_F(TasksClusteredRunTest, clusteredRunWithExtraBigCluster)
     for (int i = 0; i < n; ++i)
         input << i;
     Future<QVector<int>> future = clusteredRun(input,
-                                               [&ready, &runCounter, &initialDataLock, &initialData](int x) {
+                                               [&ready, &runCounter, &totalCounter, &initialDataLock, &initialData](int x) {
                                                    if (!ready) {
                                                        initialDataLock.lock();
                                                        initialData << x;
@@ -85,6 +92,7 @@ TEST_F(TasksClusteredRunTest, clusteredRunWithExtraBigCluster)
                                                    ++runCounter;
                                                    while (!ready)
                                                        ;
+                                                   ++totalCounter;
                                                    return x * 2;
                                                },
                                                minClusterSize, TaskType::Custom, 42);
@@ -96,6 +104,10 @@ TEST_F(TasksClusteredRunTest, clusteredRunWithExtraBigCluster)
     EXPECT_EQ(realClustersCount, runCounter);
     EXPECT_FALSE(future.isCompleted());
     ready = true;
+    future.wait(30000);
+    EXPECT_TRUE(future.isCompleted());
+    EXPECT_TRUE(future.isSucceeded());
+    EXPECT_EQ(n, totalCounter);
     auto result = future.result();
     ASSERT_EQ(n, result.count());
     for (int i = 0; i < n; ++i)
