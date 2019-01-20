@@ -14,9 +14,9 @@ option(ASYNQRO_BUILD_WITH_GCOV
 
 if (ASYNQRO_BUILD_WITH_GCOV)
     message("-- asynqro: Building with gcov support")
-    set(CMAKE_CXX_FLAGS "-g -O0 --coverage")
-    set(CMAKE_EXE_LINKER_FLAGS "--coverage")
-    set(CMAKE_SHARED_LINKER_FLAGS "--coverage")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0 --coverage -fno-inline -fno-inline-small-functions -fno-default-inline -fkeep-static-functions -fno-elide-constructors -fprofile-update=atomic")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} --coverage")
     set(CMAKE_CXX_OUTPUT_EXTENSION_REPLACE ON)
     set(ASYNQRO_BUILD_TESTS ON)
 endif()

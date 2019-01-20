@@ -15,14 +15,15 @@ jobs:
     script:
     - docker run --rm -v $(pwd):/asynqro -e "CXX=clang++" -e "CC=clang" dkormalev/asynqro-builder Release
   - <<: *main
-    name: Compilation & tests (Release, gcc 7)
+    name: Compilation & tests (Release, gcc 8)
     compiler: gcc
     script:
     - docker run --rm -v $(pwd):/asynqro -e "CXX=g++" -e "CC=gcc" dkormalev/asynqro-builder Release
   - <<: *main
-    name: Code coverage calculation (Debug, gcc 7)
+    name: Code coverage calculation (Debug, gcc 8)
     compiler: gcc
     script:
     - docker run --rm -v $(pwd):/asynqro -e "CXX=g++" -e "CC=gcc" --entrypoint=/codecov.sh dkormalev/asynqro-builder
     after_success:
-    - bash <(curl -s https://codecov.io/bash) -f coverage.info
+    - bash <(curl -s https://codecov.io/bash) -s code_coverage
+#    - bash <(curl -s https://codecov.io/bash) -f coverage.info

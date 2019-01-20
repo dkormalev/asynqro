@@ -40,6 +40,7 @@
 #include <QVariant>
 #include <QWaitCondition>
 
+#include <cassert>
 #include <iostream>
 #include <list>
 #include <memory>

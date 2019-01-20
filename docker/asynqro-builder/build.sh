@@ -19,6 +19,9 @@ fi
 rm -rf /asynqro/build;
 mkdir /asynqro/build;
 cd /asynqro/build;
+echo "$ cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DASYNQRO_BUILD_TESTS=ON \"-DCMAKE_CXX_FLAGS=$BUILD_OPTIONS\" .."
 cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DASYNQRO_BUILD_TESTS=ON "-DCMAKE_CXX_FLAGS=$BUILD_OPTIONS" ..;
+echo "$ cmake --build . --target all -- -j$THREADS_COUNT"
 cmake --build . --target all -- -j$THREADS_COUNT;
+echo "$ cmake --build . --target test"
 cmake --build . --target test
