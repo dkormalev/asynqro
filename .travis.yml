@@ -1,27 +1,11 @@
 dist: xenial
 language: cpp
-addons:
-  apt:
-    update: true
-    sources:
-    - ubuntu-toolchain-r-test
-    - sourceline: 'ppa:beineri/opt-qt-5.12.0-xenial'
-    packages:
-    - qt512base
-    - libstdc++-7-dev
-    - gcc-7
-    - g++-7
-    - lcov
 
-env:
-  global:
-  - CTEST_OUTPUT_ON_FAILURE=1
+services:
+- docker
 
-before_script:
-- source /opt/qt512/bin/qt512-env.sh
-- sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 90
-- sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 90
-- sudo update-alternatives --install /usr/bin/gcov gcov /usr/bin/gcov-7 90
+install:
+- docker pull dkormalev/asynqro-builder:latest;
 
 jobs:
   include:
@@ -29,32 +13,16 @@ jobs:
     name: Compilation & tests (Release, clang 7)
     compiler: clang
     script:
-    - mkdir build
-    - cd build
-    - cmake -DCMAKE_PREFIX_PATH=/opt/qt512 -DCMAKE_BUILD_TYPE=Release -DASYNQRO_BUILD_TESTS=ON .. || travis_terminate 1
-    - cmake --build . --target all -- -j4 || travis_terminate 1
-    - cmake --build . --target test
+    - docker run --rm -v $(pwd):/asynqro -e "CXX=clang++" -e "CC=clang" dkormalev/asynqro-builder Release
   - <<: *main
     name: Compilation & tests (Release, gcc 7)
     compiler: gcc
     script:
-    - mkdir build
-    - cd build
-    - cmake -DCMAKE_PREFIX_PATH=/opt/qt512 -DCMAKE_BUILD_TYPE=Release -DASYNQRO_BUILD_TESTS=ON .. || travis_terminate 1
-    - cmake --build . --target all -- -j4 || travis_terminate 1
-    - cmake --build . --target test
+    - docker run --rm -v $(pwd):/asynqro -e "CXX=g++" -e "CC=gcc" dkormalev/asynqro-builder Release
   - <<: *main
     name: Code coverage calculation (Debug, gcc 7)
     compiler: gcc
     script:
-    - mkdir build
-    - cd build
-    - cmake -DCMAKE_PREFIX_PATH=/opt/qt512 -DCMAKE_BUILD_TYPE=Debug -DASYNQRO_BUILD_TESTS=ON -DASYNQRO_BUILD_WITH_GCOV=ON .. || travis_terminate 1
-    - cmake --build . --target all -- -j4 || travis_terminate 1
-    - cmake --build . --target test || true
-    - cd ..
-    - lcov --no-external --capture --directory . --output-file coverage_all.info || travis_terminate 1
-    - lcov --extract coverage_all.info '*/asynqro/include/*' '*/asynqro/src/*' --output-file coverage.info || travis_terminate 1
-    - lcov --list coverage.info
+    - docker run --rm -v $(pwd):/asynqro -e "CXX=g++" -e "CC=gcc" --entrypoint=/codecov.sh dkormalev/asynqro-builder
     after_success:
     - bash <(curl -s https://codecov.io/bash) -f coverage.info
