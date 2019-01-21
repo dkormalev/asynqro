@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.com/dkormalev/asynqro.svg?branch=master)](https://travis-ci.com/dkormalev/asynqro)
 [![Code Coverage](https://codecov.io/gh/dkormalev/asynqro/branch/master/graph/badge.svg)](https://codecov.io/gh/dkormalev/asynqro)
-![Release](https://img.shields.io/github/release/dkormalev/asynqro.svg)
+[![Release](https://img.shields.io/github/release/dkormalev/asynqro.svg)](https://github.com/dkormalev/asynqro/releases/latest)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 # Asynqro
@@ -8,11 +8,11 @@
 Asynqro is a small library with purpose to make C++/Qt programming easier by giving developers rich  monadic Future API (mostly inspired by Future API in Scala language). This library is another implementation of ideas in https://github.com/opensoft/proofseed, but has much cleaner API, refined task scheduling logic and is not tied to any framework.
 
 ### Dependencies
-- **C++17**.
-- **Qt5** `>= 5.10` (technically even something like 5.6 will work, but some tests use `QThread::create` from 5.10).
-- **CMake** `>= 3.12.0`.
-- **GoogleTest**. Will be automatically downloaded during cmake phase.
-- **lcov**. 1.13 from github or 1.13-4 from debian is not enough. Should contain [1e0df57](https://github.com/linux-test-project/lcov/commit/1e0df571198229b4701100ce5f596cf1658ede4b) commit. Used for code coverage calculation, not needed for regular build.
+- **C++17**
+- **Qt5** `>= 5.10` (technically even something like 5.6 will work, but some tests use `QThread::create` from 5.10)
+- **CMake** `>= 3.12.0`
+- **GoogleTest**. Will be automatically downloaded during cmake phase
+- **lcov**. 1.13 from github or 1.13-4 from debian is not enough. Should contain [1e0df57](https://github.com/linux-test-project/lcov/commit/1e0df571198229b4701100ce5f596cf1658ede4b) commit. Used for code coverage calculation, not needed for regular build
 
 Asynqro has two main parts:
 - Future/Promise
