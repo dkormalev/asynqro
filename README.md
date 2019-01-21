@@ -1,12 +1,18 @@
 [![Build Status](https://travis-ci.com/dkormalev/asynqro.svg?branch=master)](https://travis-ci.com/dkormalev/asynqro)
-[![codecov](https://codecov.io/gh/dkormalev/asynqro/branch/master/graph/badge.svg)](https://codecov.io/gh/dkormalev/asynqro)
+[![Code Coverage](https://codecov.io/gh/dkormalev/asynqro/branch/master/graph/badge.svg)](https://codecov.io/gh/dkormalev/asynqro)
+![Release](https://img.shields.io/github/release/dkormalev/asynqro.svg)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 # Asynqro
 
 Asynqro is a small library with purpose to make C++/Qt programming easier by giving developers rich  monadic Future API (mostly inspired by Future API in Scala language). This library is another implementation of ideas in https://github.com/opensoft/proofseed, but has much cleaner API, refined task scheduling logic and is not tied to any framework.
 
-Asynqro requires C++17 and Qt5 (should work with almost any version older than 5.6, but something newer is always recommended). It uses CMake as build system and downloads GoogleTest to build dir if tests are enabled in build.
+### Dependencies
+- **C++17**.
+- **Qt5** `>= 5.10` (technically even something like 5.6 will work, but some tests use `QThread::create` from 5.10).
+- **CMake** `>= 3.12.0`.
+- **GoogleTest**. Will be automatically downloaded during cmake phase.
+- **lcov**. 1.13 from github or 1.13-4 from debian is not enough. Should contain [1e0df57](https://github.com/linux-test-project/lcov/commit/1e0df571198229b4701100ce5f596cf1658ede4b) commit. Used for code coverage calculation, not needed for regular build.
 
 Asynqro has two main parts:
 - Future/Promise
@@ -31,6 +37,8 @@ Future-related part of asynqro contains next classes:
 All classes are reentrant and thread-safe.
 
 All higher-order methods are exception-safe. If any exception happens inside function passed to such method, then Future will fail (or task will gracefully stop if it is `runAndForget`).
+
+It is possible to use Future with movable-only classes (except `sequence()`). In this case `resultRef()` should be used instead of `result()`.
 
 Asynqro is intended to be used by including `asynqro/asynqro` header that includes `asynqro/future.h` and `asynqro/tasks.h`. It is also possible to include only `asynqro/futures.h` if task scheduling is not needed. All other headers except these three are considered as implementation and should not be included directly.
 
