@@ -3,9 +3,14 @@ FROM ubuntu:rolling
 COPY build.sh /build.sh
 COPY codecov.sh /codecov.sh
 
+# Switch to system lcov when 1.14 will be released
 RUN chmod +x /build.sh && chmod +x /codecov.sh \
     && apt-get -qq update \
     && apt-get -qq install -y --no-install-recommends wget ca-certificates cmake make git clang gcc g++ lcov qtbase5-dev \
+    && apt-get -qq remove -y lcov \
+    && mkdir /extra && cd /extra \
+    && git clone https://github.com/linux-test-project/lcov.git && cd lcov && make install \
+    && cd / && rm -rf /extra \
     && rm -rf /var/lib/apt/lists/* \
     && find /usr/share/locale -name '??' -o -name '??_??' | xargs rm -rf \
     && find /usr/share/doc -type f -a ! -iname 'copyright*' -delete \

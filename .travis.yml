@@ -5,7 +5,7 @@ services:
 - docker
 
 install:
-- docker pull dkormalev/asynqro-builder:latest;
+- docker pull dkormalev/asynqro-builder:latest
 
 jobs:
   include:
@@ -20,10 +20,9 @@ jobs:
     script:
     - docker run --rm -v $(pwd):/asynqro -e "CXX=g++" -e "CC=gcc" dkormalev/asynqro-builder Release
   - <<: *main
-    name: Code coverage calculation (Debug, gcc 8)
+    name: Code coverage calculation (Debug, gcc 8, lcov, codecov.io)
     compiler: gcc
     script:
     - docker run --rm -v $(pwd):/asynqro -e "CXX=g++" -e "CC=gcc" --entrypoint=/codecov.sh dkormalev/asynqro-builder
     after_success:
-    - bash <(curl -s https://codecov.io/bash) -s code_coverage
-#    - bash <(curl -s https://codecov.io/bash) -f coverage.info
+    - bash <(curl -s https://codecov.io/bash) -f code_coverage.total
