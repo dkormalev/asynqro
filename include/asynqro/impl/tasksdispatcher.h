@@ -87,29 +87,57 @@ public:
         using RawResult = typename std::invoke_result_t<Task>;
         using NonVoidResult = detail::ValueTypeIfFuture_T<RawResult>;
         Promise<std::conditional_t<std::is_same_v<RawResult, void>, bool, NonVoidResult>> promise;
-        std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept
-        {
-            if (promise.isFilled())
-                return;
-            detail::invalidateLastFailure();
-            try {
-                if constexpr (detail::IsSpecialization_V<RawResult, Future>) {
+
+        //TODO: MSVC2019+: move constexpr if back into lambda when MSFT will fix their issue with constexpr in lambdas
+        if constexpr (detail::IsSpecialization_V<RawResult, Future>) {
+            std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept
+            {
+                if (promise.isFilled())
+                    return;
+                detail::invalidateLastFailure();
+                try {
                     task()
                         .onSuccess([promise](const auto &result) noexcept { promise.success(result); })
                         .onFailure([promise](const QVariant &failure) noexcept { promise.failure(failure); });
-                } else if constexpr (std::is_same_v<RawResult, void>) {
+                } catch (const std::exception &e) {
+                    promise.failure(detail::exceptionFailure(e));
+                } catch (...) {
+                    promise.failure(detail::exceptionFailure());
+                }
+            };
+            insertTaskInfo(std::move(f), type, tag, priority);
+        } else if constexpr (std::is_same_v<RawResult, void>) {
+            std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept
+            {
+                if (promise.isFilled())
+                    return;
+                detail::invalidateLastFailure();
+                try {
                     task();
                     promise.success(true);
-                } else {
-                    promise.success(task());
+                } catch (const std::exception &e) {
+                    promise.failure(detail::exceptionFailure(e));
+                } catch (...) {
+                    promise.failure(detail::exceptionFailure());
                 }
-            } catch (const std::exception &e) {
-                promise.failure(detail::exceptionFailure(e));
-            } catch (...) {
-                promise.failure(detail::exceptionFailure());
-            }
-        };
-        insertTaskInfo(std::move(f), type, tag, priority);
+            };
+            insertTaskInfo(std::move(f), type, tag, priority);
+        } else {
+            std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept
+            {
+                if (promise.isFilled())
+                    return;
+                detail::invalidateLastFailure();
+                try {
+                    promise.success(task());
+                } catch (const std::exception &e) {
+                    promise.failure(detail::exceptionFailure(e));
+                } catch (...) {
+                    promise.failure(detail::exceptionFailure());
+                }
+            };
+            insertTaskInfo(std::move(f), type, tag, priority);
+        }
         return CancelableFuture<>::create(promise);
     }
 

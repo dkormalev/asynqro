@@ -196,7 +196,7 @@ TYPED_TEST(SingleSocketedOutputContainersMapTest, mapWithIndices)
     ASSERT_EQ(9, result.size());
     auto converted = toVector(result, false);
     for (size_t i = 0; i < 9; ++i)
-        EXPECT_EQ(i * testContainer[i], converted[i]) << i;
+        EXPECT_EQ(i * testContainer[static_cast<int>(i)], converted[i]) << i;
 }
 
 TYPED_TEST_CASE(SingleSocketedUnorderedInputContainersMapTest, SingleSocketedUnorderedContainersTypes);
@@ -310,5 +310,5 @@ TYPED_TEST(SingleSocketedUnorderedOutputContainersMapTest, mapWithIndices)
     ASSERT_EQ(9, result.size());
     auto converted = toVector(result, true);
     for (size_t i = 0; i < 9; ++i)
-        EXPECT_EQ(i * testContainer[i], converted[i]) << i;
+        EXPECT_EQ(i * testContainer[static_cast<int>(i)], converted[i]) << i;
 }

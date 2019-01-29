@@ -42,13 +42,14 @@ struct TaskInfo
         return x;
     }
     TaskInfo() noexcept {}
-    TaskInfo(std::function<void()> &&task, TaskType type, qint32 tag, TaskPriority priority) noexcept
+    TaskInfo(std::function<void()> &&task, TaskType type, qint32 tag, TaskPriority priority)
         : task(std::move(task)), tag(tag), type(type), priority(priority)
     {}
     TaskInfo(const TaskInfo &) = delete;
     TaskInfo &operator=(const TaskInfo &) = delete;
-    TaskInfo(TaskInfo &&) noexcept = default;
-    TaskInfo &operator=(TaskInfo &&) noexcept = default;
+    //TODO: C++20: mark as noexcept
+    TaskInfo(TaskInfo &&) = default;
+    TaskInfo &operator=(TaskInfo &&) = default;
     bool isValid() const noexcept { return static_cast<bool>(task); }
     std::function<void()> task;
     qint32 tag = 0;

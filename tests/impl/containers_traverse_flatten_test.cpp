@@ -20,8 +20,9 @@ using namespace asynqro;
 
 template <typename>
 struct FlattenTypeExtractor;
-template <template <typename...> typename Outer, template <typename...> typename Inner, typename MainArg, typename... Args>
-struct FlattenTypeExtractor<Outer<Inner<MainArg, Args...>>>
+template <template <typename...> typename Outer, template <typename...> typename Inner, typename MainArg,
+          typename... Args, typename... InnerArgs>
+struct FlattenTypeExtractor<Outer<Inner<MainArg, InnerArgs...>, Args...>>
 {
     using type = Outer<MainArg>;
 };
@@ -81,7 +82,7 @@ TYPED_TEST(ContainersTraverseFlattenTest, flattenToQVector)
 {
     QVector<int> result = traverse::flatten(TestFixture::testContainer, QVector<int>());
     ASSERT_EQ(9, result.size());
-    for (size_t i = 0; i < 9; ++i)
+    for (int i = 0; i < 9; ++i)
         EXPECT_EQ(i + 1, result[i]) << i;
 }
 
@@ -89,7 +90,7 @@ TYPED_TEST(ContainersTraverseFlattenTest, flattenToQList)
 {
     QList<int> result = traverse::flatten(TestFixture::testContainer, QList<int>());
     ASSERT_EQ(9, result.size());
-    for (size_t i = 0; i < 9; ++i)
+    for (int i = 0; i < 9; ++i)
         EXPECT_EQ(i + 1, result[i]) << i;
 }
 
@@ -176,7 +177,7 @@ TYPED_TEST(UnorderedContainersTraverseFlattenTest, flattenToQVector)
     QVector<int> result = traverse::flatten(TestFixture::testContainer, QVector<int>());
     std::sort(result.begin(), result.end());
     ASSERT_EQ(9, result.size());
-    for (size_t i = 0; i < 9; ++i)
+    for (int i = 0; i < 9; ++i)
         EXPECT_EQ(i + 1, result[i]) << i;
 }
 
@@ -185,7 +186,7 @@ TYPED_TEST(UnorderedContainersTraverseFlattenTest, flattenToQList)
     QList<int> result = traverse::flatten(TestFixture::testContainer, QList<int>());
     std::sort(result.begin(), result.end());
     ASSERT_EQ(9, result.size());
-    for (size_t i = 0; i < 9; ++i)
+    for (int i = 0; i < 9; ++i)
         EXPECT_EQ(i + 1, result[i]) << i;
 }
 

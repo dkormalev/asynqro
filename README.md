@@ -1,4 +1,5 @@
-[![Build Status](https://travis-ci.com/dkormalev/asynqro.svg?branch=master)](https://travis-ci.com/dkormalev/asynqro)
+[![Travis-CI Build Status](https://travis-ci.com/dkormalev/asynqro.svg?branch=develop)](https://travis-ci.com/dkormalev/asynqro)
+[![Appveyor Build Status](https://ci.appveyor.com/api/projects/status/github/dkormalev/asynqro?svg=true&branch=develop)](https://ci.appveyor.com/project/dkormalev/asynqro)
 [![Code Coverage](https://codecov.io/gh/dkormalev/asynqro/branch/master/graph/badge.svg)](https://codecov.io/gh/dkormalev/asynqro)
 [![Release](https://img.shields.io/github/release/dkormalev/asynqro.svg)](https://github.com/dkormalev/asynqro/releases/latest)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
@@ -8,7 +9,7 @@
 Asynqro is a small library with purpose to make C++/Qt programming easier by giving developers rich  monadic Future API (mostly inspired by Future API in Scala language). This library is another implementation of ideas in https://github.com/opensoft/proofseed, but has much cleaner API, refined task scheduling logic and is not tied to any framework.
 
 ### Dependencies
-- **C++17**
+- **C++17**: tested with Clang7 (travis), GCC8 (travis) and MSVC17 (appveyor)
 - **Qt5** `>= 5.10` (technically even something like 5.6 will work, but some tests use `QThread::create` from 5.10)
 - **CMake** `>= 3.12.0`
 - **GoogleTest**. Will be automatically downloaded during cmake phase

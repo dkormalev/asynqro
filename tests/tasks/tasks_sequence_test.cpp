@@ -19,13 +19,13 @@ TEST_F(TasksSequenceRunTest, intensiveSequenceRun)
                                       [&ready, &runCounter](int x) {
                                           ++runCounter;
                                           while (!ready)
-                                              ;
+                                              QThread::msleep(1);
                                           return x * 2;
                                       },
                                       TaskType::Intensive);
     QTime timeout;
     timeout.start();
-    while (runCounter < capacity && timeout.elapsed() < 1000)
+    while (runCounter < capacity && timeout.elapsed() < 10000)
         ;
     QThread::msleep(25);
     EXPECT_EQ(capacity, runCounter);
@@ -50,13 +50,13 @@ TEST_F(TasksSequenceRunTest, sequenceRun)
                                       [&ready, &runCounter](int x) {
                                           ++runCounter;
                                           while (!ready)
-                                              ;
+                                              QThread::msleep(1);
                                           return x * 2;
                                       },
                                       TaskType::Custom, 0);
     QTime timeout;
     timeout.start();
-    while (runCounter < capacity && timeout.elapsed() < 1000)
+    while (runCounter < capacity && timeout.elapsed() < 10000)
         ;
     QThread::msleep(25);
     EXPECT_EQ(capacity, runCounter);
@@ -84,13 +84,13 @@ TEST_F(TasksSequenceRunTest, deferredSequenceRun)
                                       [&ready, &runCounter](int x) {
                                           ++runCounter;
                                           while (!ready)
-                                              ;
+                                              QThread::msleep(1);
                                           return Future<int>::successful(x * 2);
                                       },
                                       TaskType::Custom, 0);
     QTime timeout;
     timeout.start();
-    while (runCounter < capacity && timeout.elapsed() < 1000)
+    while (runCounter < capacity && timeout.elapsed() < 10000)
         ;
     QThread::msleep(25);
     EXPECT_EQ(capacity, runCounter);
@@ -118,12 +118,12 @@ TEST_F(TasksSequenceRunTest, voidSequenceRun)
                               [&ready, &runCounter](int) {
                                   ++runCounter;
                                   while (!ready)
-                                      ;
+                                      QThread::msleep(1);
                               },
                               TaskType::Custom, 0);
     QTime timeout;
     timeout.start();
-    while (runCounter < capacity && timeout.elapsed() < 1000)
+    while (runCounter < capacity && timeout.elapsed() < 10000)
         ;
     QThread::msleep(25);
     EXPECT_EQ(capacity, runCounter);
@@ -149,13 +149,13 @@ TEST_F(TasksSequenceRunTest, sequenceRunWithIndices)
                                             [n, &ready, &runCounter](long long index, int x) {
                                                 ++runCounter;
                                                 while (!ready)
-                                                    ;
+                                                    QThread::msleep(1);
                                                 return ((n - index) == x) ? index * 2 : -42;
                                             },
                                             TaskType::Custom, 0);
     QTime timeout;
     timeout.start();
-    while (runCounter < capacity && timeout.elapsed() < 1000)
+    while (runCounter < capacity && timeout.elapsed() < 10000)
         ;
     QThread::msleep(25);
     EXPECT_EQ(capacity, runCounter);
@@ -183,14 +183,14 @@ TEST_F(TasksSequenceRunTest, deferredSequenceRunWithIndices)
                                             [n, &ready, &runCounter](long long index, int x) {
                                                 ++runCounter;
                                                 while (!ready)
-                                                    ;
+                                                    QThread::msleep(1);
                                                 return Future<long long>::successful(((n - index) == x) ? index * 2
                                                                                                         : -42);
                                             },
                                             TaskType::Custom, 0);
     QTime timeout;
     timeout.start();
-    while (runCounter < capacity && timeout.elapsed() < 1000)
+    while (runCounter < capacity && timeout.elapsed() < 10000)
         ;
     QThread::msleep(25);
     EXPECT_EQ(capacity, runCounter);
@@ -218,12 +218,12 @@ TEST_F(TasksSequenceRunTest, voidSequenceRunWithIndices)
                               [&ready, &runCounter](long long, int) {
                                   ++runCounter;
                                   while (!ready)
-                                      ;
+                                      QThread::msleep(1);
                               },
                               TaskType::Custom, 0);
     QTime timeout;
     timeout.start();
-    while (runCounter < capacity && timeout.elapsed() < 1000)
+    while (runCounter < capacity && timeout.elapsed() < 10000)
         ;
     QThread::msleep(25);
     EXPECT_EQ(capacity, runCounter);
@@ -270,7 +270,7 @@ TEST_F(TasksSequenceRunTest, sequenceRunWithFailure)
     EXPECT_EQ(0, future.result().count());
     QTime timeout;
     timeout.start();
-    while (doneCount < n && timeout.elapsed() < 1000)
+    while (doneCount < n && timeout.elapsed() < 10000)
         ;
     EXPECT_EQ(n, doneCount);
 }

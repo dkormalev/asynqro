@@ -1,0 +1,47 @@
+version: '{branch}-{build}'
+clone_folder: c:\projects\asynqro
+image:
+- Visual Studio 2017
+configuration:
+- Release
+platform:
+- x64
+environment:
+  matrix:
+  - arch: Win64
+matrix:
+  fast_finish: true
+
+skip_commits:
+  files:
+    - benchmarks/
+    - docker/
+    - .travis.yml
+    - README.md
+    - LICENSE
+    - .gitignore
+
+# skip unsupported combinations
+init:
+- set arch=
+- if "%arch%"=="Win64" ( set arch= Win64)
+- echo %arch%
+- echo %APPVEYOR_BUILD_WORKER_IMAGE%
+- if "%APPVEYOR_BUILD_WORKER_IMAGE%"=="Visual Studio 2017" ( set generator="Visual Studio 15 2017%arch%" )
+- echo %generator%
+- set QTDIR=C:/Qt/5.11/msvc2017_64
+- set PATH=C:\projects\asynqro\build\%CONFIGURATION%;%QTDIR%\bin;%PATH%
+
+before_build:
+- cmd: |-
+    mkdir build
+    cd build
+    cmake --version
+    cmake -DCMAKE_PREFIX_PATH=C:/Qt/5.11/msvc2017_64 -DASYNQRO_BUILD_TESTS=ON .. -G %generator%
+build:
+  project: c:\projects\asynqro\build\asynqro.sln
+  verbosity: minimal
+  parallel: true
+test_script:
+- ctest --output-on-failure -C %CONFIGURATION%
+

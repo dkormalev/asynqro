@@ -76,15 +76,15 @@ public:
     }
 
     // This overload copies container to make sure that it will be reachable in future
-    template <typename T, template <typename...> typename F, template <typename...> typename Container>
-    static Future<Container<T>> sequence(const Container<F<T>> &container) noexcept
+    template <typename T, template <typename...> typename F, template <typename...> typename Container, typename... Fs>
+    static Future<Container<T>> sequence(const Container<F<T>, Fs...> &container) noexcept
     {
         Container<F<T>> copy = container;
         return Future<T>::sequence(std::move(copy));
     }
 
-    template <typename T, template <typename...> typename F, template <typename...> typename Container>
-    static Future<Container<T>> sequence(Container<F<T>> &&container) noexcept
+    template <typename T, template <typename...> typename F, template <typename...> typename Container, typename... Fs>
+    static Future<Container<T>> sequence(Container<F<T>, Fs...> &&container) noexcept
     {
         return Future<T>::sequence(std::move(container));
     }
@@ -479,18 +479,18 @@ public:
     }
 
     // This overload copies container to make sure that it will be reachable in future
-    template <template <typename...> typename F, template <typename...> typename Container,
+    template <template <typename...> typename F, template <typename...> typename Container, typename... Fs,
               typename = std::enable_if_t<std::is_same_v<F<T>, Future<T>> || std::is_same_v<F<T>, CancelableFuture<T>>>>
-    static Future<Container<T>> sequence(const Container<F<T>> &container) noexcept
+    static Future<Container<T>> sequence(const Container<F<T>, Fs...> &container) noexcept
     {
         Container<F<T>> copy(container);
         return sequence(std::move(copy));
     }
 
-    template <template <typename...> typename F, template <typename...> typename Container, typename Dummy = void,
-              typename = std::enable_if_t<std::is_copy_constructible_v<T>, Dummy>,
+    template <template <typename...> typename F, template <typename...> typename Container, typename... Fs,
+              typename Dummy = void, typename = std::enable_if_t<std::is_copy_constructible_v<T>, Dummy>,
               typename = std::enable_if_t<std::is_same_v<F<T>, Future<T>> || std::is_same_v<F<T>, CancelableFuture<T>>>>
-    static Future<Container<T>> sequence(Container<F<T>> &&container) noexcept
+    static Future<Container<T>> sequence(Container<F<T>, Fs...> &&container) noexcept
     {
         if (container.empty())
             return Future<Container<T>>::successful();
@@ -571,9 +571,10 @@ private:
         return map([](const T &v) noexcept { return detail::AsTuple<T>::make(v); });
     }
 
-    template <typename It, template <typename...> typename F, template <typename...> typename Container>
-    static void iterateSequence(Container<F<T>> &&initial, It current, Container<T> &&result,
-                                const Future<Container<T>> &future) noexcept
+    template <typename It, template <typename...> typename F, typename... Ts, typename... Fs,
+              template <typename...> typename Container>
+    static void iterateSequence(Container<F<T>, Fs...> &&initial, It current, Container<T, Ts...> &&result,
+                                const Future<Container<T, Ts...>> &future) noexcept
     {
         while (current != initial.cend()) {
             auto f = (*current);

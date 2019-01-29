@@ -248,8 +248,9 @@ auto reduce(const C &src, const Func &f, Result acc)
     return acc;
 }
 
-template <template <typename...> class COuter, template <typename...> class CInner, typename T, typename Result>
-auto flatten(const COuter<CInner<T>> &src, Result dest)
+template <template <typename...> typename COuter, template <typename...> typename CInner, typename T,
+          typename... Inners, typename... Ts, typename Result>
+auto flatten(const COuter<CInner<T, Ts...>, Inners...> &src, Result dest)
     -> decltype(detail::containers::add(dest, *detail::containers::begin(*detail::containers::begin(src))), Result())
 {
     long long estimatedSize = 0;
@@ -268,8 +269,9 @@ auto flatten(const COuter<CInner<T>> &src, Result dest)
     return dest;
 }
 
-template <template <typename...> class COuter, template <typename...> class CInner, typename T>
-COuter<T> flatten(const COuter<CInner<T>> &src)
+template <template <typename...> class COuter, template <typename...> class CInner, typename... Inners, typename... Ts,
+          typename T>
+COuter<T> flatten(const COuter<CInner<T, Ts...>, Inners...> &src)
 {
     return flatten(src, COuter<T>());
 }

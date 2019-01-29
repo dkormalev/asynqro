@@ -225,7 +225,7 @@ TEST_F(TasksTest, multipleTasks)
     for (int i = 0; i < n; ++i) {
         results << run(TaskType::Custom, 0, [&ready, i]() {
             while (!ready)
-                ;
+                QThread::msleep(1);
             return pairedResult(i * 2);
         });
     }
@@ -252,13 +252,13 @@ TEST_F(TasksTest, multipleTasksOverCapacity)
         results << run(TaskType::Custom, 0, [&ready, &runCounter, i]() {
             ++runCounter;
             while (!ready)
-                ;
+                QThread::msleep(1);
             return i * 2;
         });
     }
     QTime timeout;
     timeout.start();
-    while (runCounter < TasksDispatcher::instance()->capacity() && timeout.elapsed() < 1000)
+    while (runCounter < TasksDispatcher::instance()->capacity() && timeout.elapsed() < 10000)
         ;
     QThread::msleep(25);
     EXPECT_EQ(TasksDispatcher::instance()->capacity(), runCounter);
@@ -282,13 +282,13 @@ TEST_F(TasksTest, multipleTasksOverChangedCapacity)
         results << run(TaskType::Custom, 0, [&ready, &runCounter, i]() {
             ++runCounter;
             while (!ready)
-                ;
+                QThread::msleep(1);
             return i * 2;
         });
     }
     QTime timeout;
     timeout.start();
-    while (runCounter < TasksDispatcher::instance()->capacity() && timeout.elapsed() < 1000)
+    while (runCounter < TasksDispatcher::instance()->capacity() && timeout.elapsed() < 10000)
         ;
     QThread::msleep(25);
     EXPECT_EQ(TasksDispatcher::instance()->capacity(), runCounter);
@@ -311,14 +311,14 @@ TEST_F(TasksTest, multipleIntensiveTasksOverCapacity)
             [&ready, &runCounter, i]() {
                 ++runCounter;
                 while (!ready)
-                    ;
+                    QThread::msleep(1);
                 return i * 2;
             },
             TaskType::Intensive);
     }
     QTime timeout;
     timeout.start();
-    while (runCounter < capacity && timeout.elapsed() < 1000)
+    while (runCounter < capacity && timeout.elapsed() < 10000)
         ;
     QThread::msleep(25);
     EXPECT_EQ(capacity, runCounter);
@@ -344,19 +344,19 @@ TEST_F(TasksTest, multipleCustomTasksOverCapacity)
         results << run(TaskType::Custom, 42, [&ready, &runCounter, i]() {
             ++runCounter;
             while (!ready)
-                ;
+                QThread::msleep(1);
             return i * 2;
         });
         otherResults << run(TaskType::Custom, 24, [&ready, &otherRunCounter, i]() {
             ++otherRunCounter;
             while (!ready)
-                ;
+                QThread::msleep(1);
             return i * 3;
         });
     }
     QTime timeout;
     timeout.start();
-    while ((runCounter < capacity || otherRunCounter < otherCapacity) && timeout.elapsed() < 5000)
+    while ((runCounter < capacity || otherRunCounter < otherCapacity) && timeout.elapsed() < 10000)
         ;
     QThread::msleep(25);
     EXPECT_EQ(capacity, runCounter);
