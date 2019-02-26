@@ -2,16 +2,14 @@
 
 #include "gtest/gtest.h"
 
-#include <QVector>
-
 using namespace asynqro::tasks;
 
-using TraverseOrderTestData = std::tuple<QVector<quint8>, QVector<int>>;
+using TraverseOrderTestData = std::tuple<std::vector<uint8_t>, std::vector<int>>;
 class TraverseOrderTasksListTest : public testing::TestWithParam<TraverseOrderTestData>
 {};
 
-using RemovalTestInnerData = std::tuple<int, int, QVector<int>>;
-using RemovalTestData = std::tuple<int, QVector<RemovalTestInnerData>>;
+using RemovalTestInnerData = std::tuple<int, int, std::vector<int>>;
+using RemovalTestData = std::tuple<int, std::vector<RemovalTestInnerData>>;
 class RemovalTasksListTest : public testing::TestWithParam<RemovalTestData>
 {};
 
@@ -19,7 +17,7 @@ class SizesTasksListTest : public testing::TestWithParam<int>
 {};
 
 // clang-format off
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
         OrderTasksTestParameters, TraverseOrderTasksListTest,
         testing::Values(
             TraverseOrderTestData{{}, {}},
@@ -35,19 +33,20 @@ INSTANTIATE_TEST_CASE_P(
 // clang-format on
 TEST_P(TraverseOrderTasksListTest, traverseOrder)
 {
-    QVector<quint8> insert = std::get<0>(GetParam());
-    QVector<int> expected = std::get<1>(GetParam());
-    ASSERT_EQ(expected.count(), insert.count());
-    QVector<int> result;
+    std::vector<uint8_t> insert = std::get<0>(GetParam());
+    std::vector<int> expected = std::get<1>(GetParam());
+    ASSERT_EQ(expected.size(), insert.size());
+    std::vector<int> result;
     TasksList list;
-    for (int i = 0; i < insert.count(); ++i)
-        list.insert([&result, i]() { result << i; }, TaskType::Custom, 0, static_cast<TaskPriority>(insert[i]));
+    for (int i = 0; i < static_cast<int>(insert.size()); ++i)
+        list.insert([&result, i]() { result.push_back(i); }, TaskType::Custom, 0,
+                    static_cast<TaskPriority>(insert[static_cast<size_t>(i)]));
     for (const auto &taskInfo : list)
         taskInfo.task();
     EXPECT_EQ(expected, result);
 }
 
-INSTANTIATE_TEST_CASE_P(IncrementTasksTestParameters, SizesTasksListTest, testing::Values(0, 1, 2, 5, 10));
+INSTANTIATE_TEST_SUITE_P(IncrementTasksTestParameters, SizesTasksListTest, testing::Values(0, 1, 2, 5, 10));
 TEST_P(SizesTasksListTest, iteratorIncrement)
 {
     int size = GetParam();
@@ -71,7 +70,7 @@ TEST_P(SizesTasksListTest, iteratorIncrement)
 }
 
 // clang-format off
-INSTANTIATE_TEST_CASE_P(RemovalTasksTestParameters, RemovalTasksListTest,
+INSTANTIATE_TEST_SUITE_P(RemovalTasksTestParameters, RemovalTasksListTest,
                         testing::Values(
                             RemovalTestData{0, {}},
                             RemovalTestData{1, {{0, -1, {}}}},
@@ -98,14 +97,14 @@ TEST_P(RemovalTasksListTest, erase)
 {
     int size = std::get<0>(GetParam());
     TasksList list;
-    QVector<int> result;
+    std::vector<int> result;
     for (int i = 0; i < size; ++i)
-        list.insert([&result, i]() { result << i; }, TaskType::Custom, i, TaskPriority::Regular);
+        list.insert([&result, i]() { result.push_back(i); }, TaskType::Custom, i, TaskPriority::Regular);
 
-    QVector<RemovalTestInnerData> testData = std::get<1>(GetParam());
+    std::vector<RemovalTestInnerData> testData = std::get<1>(GetParam());
     EXPECT_EQ(size, list.size());
     for (const auto &[del, next, others] : testData) {
-        ASSERT_EQ(list.size() - 1, others.count());
+        ASSERT_EQ(list.size() - 1, others.size());
         for (auto it = list.begin(); it != list.end(); ++it) {
             if (it->tag == del) {
                 it = list.erase(it);
@@ -118,7 +117,7 @@ TEST_P(RemovalTasksListTest, erase)
                 break;
             }
         }
-        EXPECT_EQ(list.size(), others.count());
+        EXPECT_EQ(list.size(), others.size());
         result.clear();
         for (const auto &taskInfo : list)
             taskInfo.task();

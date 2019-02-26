@@ -32,23 +32,40 @@
 #include "asynqro/impl/asynqro_export.h"
 #include "asynqro/impl/typetraits.h"
 
-#include <QtGlobal>
-
 namespace asynqro::tasks {
 namespace detail {
 using namespace asynqro::detail;
 template <typename T>
 using ValueTypeIfFuture_T = ValueTypeIfNeeded_T<detail::IsSpecialization_V<T, Future>, T>;
+
+template <bool returnInner, typename T, typename DefaultFailure>
+struct FailureTypeIfFuture;
+
+template <typename T, typename DefaultFailure>
+struct FailureTypeIfFuture<true, T, DefaultFailure>
+{
+    using type = typename T::Failure;
+};
+
+template <typename T, typename DefaultFailure>
+struct FailureTypeIfFuture<false, T, DefaultFailure>
+{
+    using type = DefaultFailure;
+};
+
+template <typename T, typename DefaultFailure>
+using FailureTypeIfFuture_T = typename FailureTypeIfFuture<detail::IsSpecialization_V<T, Future>, T, DefaultFailure>::type;
+
 } // namespace detail
 
-enum class TaskType : quint8
+enum class TaskType : uint8_t
 {
     Custom = 0,
     Intensive = 1,
     ThreadBound = 2
 };
 
-enum TaskPriority : quint8
+enum TaskPriority : uint8_t
 {
     Emergency = 0x0,
     Regular = 0x0F,
@@ -59,37 +76,67 @@ class TasksDispatcherPrivate;
 class Worker;
 class ASYNQRO_EXPORT TasksDispatcher
 {
-    Q_DECLARE_PRIVATE(TasksDispatcher)
 public:
     static TasksDispatcher *instance();
     TasksDispatcher(const TasksDispatcher &) = delete;
     TasksDispatcher(const TasksDispatcher &&) = delete;
-    TasksDispatcher operator=(const TasksDispatcher &) = delete;
-    TasksDispatcher operator=(const TasksDispatcher &&) = delete;
+    TasksDispatcher &operator=(const TasksDispatcher &) = delete;
+    TasksDispatcher &operator=(const TasksDispatcher &&) = delete;
 
-    qint32 capacity() const;
-    qint32 subPoolCapacity(TaskType type, qint32 tag = 0) const;
-    void setCapacity(qint32 capacity);
-    void addCustomTag(qint32 tag, qint32 capacity);
-    void setBoundCapacity(qint32 capacity);
+    int32_t capacity() const;
+    int32_t subPoolCapacity(TaskType type, int32_t tag = 0) const;
+    void setCapacity(int32_t capacity);
+    void addCustomTag(int32_t tag, int32_t capacity);
+    void setBoundCapacity(int32_t capacity);
 
-    qint32 idleLoopsAmount() const;
-    void setIdleLoopsAmount(qint32 amount);
+    int_fast32_t idleLoopsAmount() const;
+    void setIdleLoopsAmount(int_fast32_t amount);
 
-    qint32 instantUsage() const;
+    int_fast32_t instantUsage() const;
 
     void preHeatPool(double amount = 1.0);
     void preHeatIntensivePool();
 
+private:
+    friend class TasksDispatcherPrivate;
+    friend class Worker;
+    template <typename FailureType>
+    friend struct TaskRunner;
+    TasksDispatcher();
+    ~TasksDispatcher();
+    void insertTaskInfo(std::function<void()> &&wrappedTask, TaskType type, int32_t tag, TaskPriority priority) noexcept;
+
+    std::unique_ptr<TasksDispatcherPrivate> d_ptr;
+};
+
+/*
+ * struct RunnerInfo {
+ *      type PlainFailure;
+ *
+ *      constexpr static bool deferredFailureShouldBeConverted;
+ *
+ *      //Not needed if deferredFailureShouldBeConverted == false
+ *      template <typename DeferredFailure>
+ *      static PlainFailure toPlainFailure(const DeferredFailure &deferred);
+ * };
+ */
+
+template <typename RunnerInfo>
+struct TaskRunner
+{
+    using Info = RunnerInfo;
     template <typename Task>
-    auto run(Task &&task, TaskType type, qint32 tag, TaskPriority priority) noexcept
+    static auto run(Task &&task, TaskType type, int32_t tag, TaskPriority priority) noexcept
     {
         using RawResult = typename std::invoke_result_t<Task>;
         using NonVoidResult = detail::ValueTypeIfFuture_T<RawResult>;
-        Promise<std::conditional_t<std::is_same_v<RawResult, void>, bool, NonVoidResult>> promise;
+        using FinalFailure =
+            std::conditional_t<RunnerInfo::deferredFailureShouldBeConverted, typename RunnerInfo::PlainFailure,
+                               detail::FailureTypeIfFuture_T<RawResult, typename RunnerInfo::PlainFailure>>;
+        Promise<std::conditional_t<std::is_same_v<RawResult, void>, bool, NonVoidResult>, FinalFailure> promise;
 
         //TODO: MSVC2019+: move constexpr if back into lambda when MSFT will fix their issue with constexpr in lambdas
-        if constexpr (detail::IsSpecialization_V<RawResult, Future>) {
+        if constexpr (detail::IsSpecialization_V<RawResult, Future> && RunnerInfo::deferredFailureShouldBeConverted) {
             std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept
             {
                 if (promise.isFilled())
@@ -98,14 +145,34 @@ public:
                 try {
                     task()
                         .onSuccess([promise](const auto &result) noexcept { promise.success(result); })
-                        .onFailure([promise](const QVariant &failure) noexcept { promise.failure(failure); });
+                        .onFailure([promise](const auto &failure) noexcept {
+                            promise.failure(RunnerInfo::toPlainFailure(failure));
+                        });
                 } catch (const std::exception &e) {
-                    promise.failure(detail::exceptionFailure(e));
+                    promise.failure(detail::exceptionFailure<FinalFailure>(e));
                 } catch (...) {
-                    promise.failure(detail::exceptionFailure());
+                    promise.failure(detail::exceptionFailure<FinalFailure>());
                 }
             };
-            insertTaskInfo(std::move(f), type, tag, priority);
+            TasksDispatcher::instance()->insertTaskInfo(std::move(f), type, tag, priority);
+        } else if constexpr (detail::IsSpecialization_V<RawResult, Future>) {
+            // !TaskRunnerDescriptor::deferredFailureShouldBeConverted
+            std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept
+            {
+                if (promise.isFilled())
+                    return;
+                detail::invalidateLastFailure();
+                try {
+                    task()
+                        .onSuccess([promise](const auto &result) noexcept { promise.success(result); })
+                        .onFailure([promise](const FinalFailure &failure) noexcept { promise.failure(failure); });
+                } catch (const std::exception &e) {
+                    promise.failure(detail::exceptionFailure<FinalFailure>(e));
+                } catch (...) {
+                    promise.failure(detail::exceptionFailure<FinalFailure>());
+                }
+            };
+            TasksDispatcher::instance()->insertTaskInfo(std::move(f), type, tag, priority);
         } else if constexpr (std::is_same_v<RawResult, void>) {
             std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept
             {
@@ -116,12 +183,12 @@ public:
                     task();
                     promise.success(true);
                 } catch (const std::exception &e) {
-                    promise.failure(detail::exceptionFailure(e));
+                    promise.failure(detail::exceptionFailure<FinalFailure>(e));
                 } catch (...) {
-                    promise.failure(detail::exceptionFailure());
+                    promise.failure(detail::exceptionFailure<FinalFailure>());
                 }
             };
-            insertTaskInfo(std::move(f), type, tag, priority);
+            TasksDispatcher::instance()->insertTaskInfo(std::move(f), type, tag, priority);
         } else {
             std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept
             {
@@ -131,20 +198,20 @@ public:
                 try {
                     promise.success(task());
                 } catch (const std::exception &e) {
-                    promise.failure(detail::exceptionFailure(e));
+                    promise.failure(detail::exceptionFailure<FinalFailure>(e));
                 } catch (...) {
-                    promise.failure(detail::exceptionFailure());
+                    promise.failure(detail::exceptionFailure<FinalFailure>());
                 }
             };
-            insertTaskInfo(std::move(f), type, tag, priority);
+            TasksDispatcher::instance()->insertTaskInfo(std::move(f), type, tag, priority);
         }
         return CancelableFuture<>::create(promise);
     }
 
     template <typename Task>
-    void runAndForget(Task &&task, TaskType type, qint32 tag, TaskPriority priority) noexcept
+    static void runAndForget(Task &&task, TaskType type, int32_t tag, TaskPriority priority) noexcept
     {
-        insertTaskInfo(
+        TasksDispatcher::instance()->insertTaskInfo(
             [task = std::forward<Task>(task)]() noexcept {
                 try {
                     task();
@@ -153,15 +220,8 @@ public:
             },
             type, tag, priority);
     }
-
-private:
-    friend class Worker;
-    TasksDispatcher();
-    ~TasksDispatcher();
-    void insertTaskInfo(std::function<void()> &&wrappedTask, TaskType type, qint32 tag, TaskPriority priority) noexcept;
-
-    QScopedPointer<TasksDispatcherPrivate> d_ptr;
 };
+
 } // namespace asynqro::tasks
 
 #endif // ASYNQRO_TASKS_DISPATCHER_H

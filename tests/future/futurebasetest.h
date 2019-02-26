@@ -6,17 +6,28 @@
 
 #include "gtest/gtest.h"
 
+#include <chrono>
+
+using namespace std::chrono_literals;
+
 using namespace asynqro;
 using namespace asynqro::detail;
+
+template <typename T>
+using TestPromise = Promise<T, std::string>;
+template <typename T>
+using TestFuture = Future<T, std::string>;
+template <typename T>
+using CancelableTestFuture = CancelableFuture<T, std::string>;
+using WithTestFailure = WithFailure<std::string>;
 
 class CommonFutureBaseTest : public testing::Test
 {
 protected:
     void TearDown() override
     {
-        QTime timer;
-        timer.start();
-        while (timer.elapsed() < 10000 && asynqro::instantFuturesUsage() != 0)
+        auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+        while (std::chrono::high_resolution_clock::now() < timeout && asynqro::instantFuturesUsage() != 0)
             ;
         EXPECT_EQ(0, asynqro::instantFuturesUsage());
     }
@@ -25,8 +36,8 @@ protected:
 class FutureBaseTest : public CommonFutureBaseTest
 {
 protected:
-    template <typename T>
-    Future<T> createFuture(const Promise<T> &promise)
+    template <typename T, typename Failure>
+    Future<T, Failure> createFuture(const Promise<T, Failure> &promise)
     {
         return promise.future();
     }
@@ -35,10 +46,10 @@ protected:
 class CancelableFutureBaseTest : public CommonFutureBaseTest
 {
 protected:
-    template <typename T>
-    CancelableFuture<T> createFuture(const Promise<T> &promise)
+    template <typename T, typename Failure>
+    CancelableFuture<T, Failure> createFuture(const Promise<T, Failure> &promise)
     {
-        return CancelableFuture<T>(promise);
+        return CancelableFuture<T, Failure>(promise);
     }
 };
 #endif // FUTUREBASETEST_H

@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.12.0)
 project(asynqro_future_tests LANGUAGES CXX)
 
-find_package(Qt5Core CONFIG REQUIRED)
-
 add_executable(asynqro_future_tests
     main.cpp
     future_basics_test.cpp
@@ -38,7 +36,12 @@ set_target_properties(asynqro_future_tests PROPERTIES
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
     POSITION_INDEPENDENT_CODE ON
-    AUTOMOC ON
 )
 target_link_libraries(asynqro_future_tests asynqro::asynqro gtest)
+if (ASYNQRO_QT_SUPPORT)
+    find_package(Qt5Core CONFIG REQUIRED)
+    target_link_libraries(asynqro_future_tests Qt5::Core)
+    target_compile_definitions(asynqro_future_tests PRIVATE ASYNQRO_QT_SUPPORT)
+endif()
+
 gtest_discover_tests(asynqro_future_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)

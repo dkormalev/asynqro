@@ -28,35 +28,37 @@
 #ifndef ASYNQRO_PROMISE_H
 #define ASYNQRO_PROMISE_H
 
-#include <QVariant>
+#include <memory>
+#include <type_traits>
 
 namespace asynqro {
-template <typename... T>
+template <typename T, typename FailureT>
 class Future;
 
-template <typename T>
+template <typename T, typename FailureT>
 class Promise
 {
-    static_assert(!std::is_same_v<T, void>, "Promise<void> is not allowed. Use Promise<bool> instead");
+    static_assert(!std::is_same_v<T, void>, "Promise<void, _> is not allowed. Use Promise<bool, _> instead");
+    static_assert(!std::is_same_v<FailureT, void>, "Promise<_, void> is not allowed. Use Promise<_, bool> instead");
 
 public:
     using Value = T;
     Promise() = default;
-    Promise(const Promise<T> &) noexcept = default;
-    Promise(Promise<T> &&) noexcept = default;
-    Promise &operator=(const Promise<T> &) noexcept = default;
-    Promise &operator=(Promise<T> &&) noexcept = default;
+    Promise(const Promise<T, FailureT> &) noexcept = default;
+    Promise(Promise<T, FailureT> &&) noexcept = default;
+    Promise &operator=(const Promise<T, FailureT> &) noexcept = default;
+    Promise &operator=(Promise<T, FailureT> &&) noexcept = default;
     ~Promise() = default;
 
-    Future<T> future() const { return m_future; }
+    Future<T, FailureT> future() const { return m_future; }
 
     bool isFilled() const noexcept { return m_future.isCompleted(); }
-    void failure(const QVariant &reason) const noexcept { m_future.fillFailure(reason); }
+    void failure(const FailureT &reason) const noexcept { m_future.fillFailure(reason); }
     void success(T &&result) const noexcept { m_future.fillSuccess(std::forward<T>(result)); }
     void success(const T &result) const noexcept { m_future.fillSuccess(result); }
 
 private:
-    Future<T> m_future = Future<T>::create();
+    Future<T, FailureT> m_future = Future<T, FailureT>::create();
 };
 
 } // namespace asynqro

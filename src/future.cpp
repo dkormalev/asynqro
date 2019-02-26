@@ -26,7 +26,7 @@
 
 namespace asynqro {
 namespace detail {
-static std::atomic_llong counter{0};
+static std::atomic_int_fast64_t counter{0};
 
 void incrementFuturesUsage()
 {
@@ -40,7 +40,7 @@ void decrementFuturesUsage()
 
 } // namespace detail
 
-qint64 instantFuturesUsage()
+int_fast64_t instantFuturesUsage()
 {
     return detail::counter.load(std::memory_order_relaxed);
 }

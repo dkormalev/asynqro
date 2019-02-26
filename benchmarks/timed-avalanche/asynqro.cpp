@@ -1,7 +1,5 @@
 #include "asynqro/asynqro"
 
-#include <QVector>
-
 #include <atomic>
 #include <chrono>
 #include <iostream>

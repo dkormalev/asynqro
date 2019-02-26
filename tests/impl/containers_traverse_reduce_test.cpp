@@ -2,12 +2,14 @@
 
 #include "gtest/gtest.h"
 
-#include <QHash>
-#include <QLinkedList>
-#include <QList>
-#include <QMap>
-#include <QSet>
-#include <QVector>
+#ifdef ASYNQRO_QT_SUPPORT
+#    include <QHash>
+#    include <QLinkedList>
+#    include <QList>
+#    include <QMap>
+#    include <QSet>
+#    include <QVector>
+#endif
 
 #include <list>
 #include <map>
@@ -63,11 +65,13 @@ public:
         return std::move(acc);
     };
 
+#ifdef ASYNQRO_QT_SUPPORT
     static constexpr auto complexCOWReducer = [](QVector<ReduceResult> acc, int x) {
         acc[0].sum += x;
         acc[0].mult *= x;
         return acc;
     };
+#endif
 };
 
 template <typename Container>
@@ -88,17 +92,23 @@ public:
         return std::move(acc);
     };
 
+#ifdef ASYNQRO_QT_SUPPORT
     static constexpr auto complexCOWReducer = [](QVector<ReduceResult> acc, int x, bool y) {
         acc[0].sum += y ? x : 0;
         acc[0].mult *= x;
         return acc;
     };
+#endif
 };
 
-using SingleSocketedContainersTypes =
-    ::testing::Types<QVector<int>, QList<int>, QLinkedList<int>, QSet<int>, std::vector<int>, std::set<int>,
-                     std::unordered_set<int>, std::multiset<int>, std::unordered_multiset<int>, std::list<int>>;
-TYPED_TEST_CASE(SingleSocketedContainersReduceTest, SingleSocketedContainersTypes);
+using SingleSocketedContainersTypes = ::testing::Types<std::vector<int>, std::set<int>, std::unordered_set<int>,
+                                                       std::multiset<int>, std::unordered_multiset<int>, std::list<int>
+#ifdef ASYNQRO_QT_SUPPORT
+                                                       ,
+                                                       QVector<int>, QList<int>, QLinkedList<int>, QSet<int>
+#endif
+                                                       >;
+TYPED_TEST_SUITE(SingleSocketedContainersReduceTest, SingleSocketedContainersTypes);
 TYPED_TEST(SingleSocketedContainersReduceTest, reduce)
 {
     ReduceResult::counter = 0;
@@ -113,7 +123,6 @@ TYPED_TEST(SingleSocketedContainersReduceTest, reduce)
     }
     int result;
     ReduceResult complexResult;
-    QVector<ReduceResult> complexCOWResult;
     ASSERT_EQ(1, ReduceResult::counter);
 
     result = traverse::reduce(testContainer, TestFixture::simpleReducer, 1);
@@ -128,12 +137,15 @@ TYPED_TEST(SingleSocketedContainersReduceTest, reduce)
     EXPECT_EQ(referenceSum, complexResult.sum);
     EXPECT_EQ(referenceMult, complexResult.mult);
 
+#ifdef ASYNQRO_QT_SUPPORT
     auto initial = QVector<ReduceResult>();
     initial.append({0, 1});
-    complexCOWResult = traverse::reduce(testContainer, TestFixture::complexCOWReducer, std::move(initial));
+    QVector<ReduceResult> complexCOWResult = traverse::reduce(testContainer, TestFixture::complexCOWReducer,
+                                                              std::move(initial));
     EXPECT_EQ(4, ReduceResult::counter);
     EXPECT_EQ(referenceSum, complexCOWResult.constFirst().sum);
     EXPECT_EQ(referenceMult, complexCOWResult.constFirst().mult);
+#endif
 }
 
 TYPED_TEST(SingleSocketedContainersReduceTest, reduceEmpty)
@@ -141,7 +153,6 @@ TYPED_TEST(SingleSocketedContainersReduceTest, reduceEmpty)
     ReduceResult::counter = 0;
     typename TestFixture::Source emptyContainer;
     ReduceResult complexResult;
-    QVector<ReduceResult> complexCOWResult;
     ASSERT_EQ(1, ReduceResult::counter);
 
     complexResult = traverse::reduce(emptyContainer, TestFixture::complexReducer, ReduceResult{0, 1});
@@ -154,19 +165,25 @@ TYPED_TEST(SingleSocketedContainersReduceTest, reduceEmpty)
     EXPECT_EQ(0, complexResult.sum);
     EXPECT_EQ(1, complexResult.mult);
 
+#ifdef ASYNQRO_QT_SUPPORT
     auto initial = QVector<ReduceResult>();
     initial.append({0, 1});
-    complexCOWResult = traverse::reduce(emptyContainer, TestFixture::complexCOWReducer, std::move(initial));
+    QVector<ReduceResult> complexCOWResult = traverse::reduce(emptyContainer, TestFixture::complexCOWReducer,
+                                                              std::move(initial));
     EXPECT_EQ(4, ReduceResult::counter);
     EXPECT_EQ(0, complexCOWResult.constFirst().sum);
     EXPECT_EQ(1, complexCOWResult.constFirst().mult);
+#endif
 }
 
-
-using DoubleSocketedContainersTypes =
-    ::testing::Types<QMap<int, bool>, QMultiMap<int, bool>, QHash<int, bool>, QMultiHash<int, bool>, std::map<int, bool>,
-                     std::unordered_map<int, bool>, std::multimap<int, bool>, std::unordered_multimap<int, bool>>;
-TYPED_TEST_CASE(DoubleSocketedContainersReduceTest, DoubleSocketedContainersTypes);
+using DoubleSocketedContainersTypes = ::testing::Types<
+    std::map<int, bool>, std::unordered_map<int, bool>, std::multimap<int, bool>, std::unordered_multimap<int, bool>
+#ifdef ASYNQRO_QT_SUPPORT
+    ,
+    QMap<int, bool>, QMultiMap<int, bool>, QHash<int, bool>, QMultiHash<int, bool>
+#endif
+    >;
+TYPED_TEST_SUITE(DoubleSocketedContainersReduceTest, DoubleSocketedContainersTypes);
 TYPED_TEST(DoubleSocketedContainersReduceTest, reduce)
 {
     ReduceResult::counter = 0;
@@ -175,13 +192,12 @@ TYPED_TEST(DoubleSocketedContainersReduceTest, reduce)
     int referenceMult = 1;
     typename TestFixture::Source testContainer;
     for (int i = 1; i <= n; ++i) {
-        traverse::detail::containers::add(testContainer, qMakePair(i, (i % 2)));
+        traverse::detail::containers::add(testContainer, std::make_pair(i, (i % 2)));
         referenceSum += (i % 2) ? i : 0;
         referenceMult *= i;
     }
     int result;
     ReduceResult complexResult;
-    QVector<ReduceResult> complexCOWResult;
     ASSERT_EQ(1, ReduceResult::counter);
 
     result = traverse::reduce(testContainer, TestFixture::simpleReducer, 1);
@@ -196,12 +212,15 @@ TYPED_TEST(DoubleSocketedContainersReduceTest, reduce)
     EXPECT_EQ(referenceSum, complexResult.sum);
     EXPECT_EQ(referenceMult, complexResult.mult);
 
+#ifdef ASYNQRO_QT_SUPPORT
     auto initial = QVector<ReduceResult>();
     initial.append({0, 1});
-    complexCOWResult = traverse::reduce(testContainer, TestFixture::complexCOWReducer, std::move(initial));
+    QVector<ReduceResult> complexCOWResult = traverse::reduce(testContainer, TestFixture::complexCOWReducer,
+                                                              std::move(initial));
     EXPECT_EQ(4, ReduceResult::counter);
     EXPECT_EQ(referenceSum, complexCOWResult.constFirst().sum);
     EXPECT_EQ(referenceMult, complexCOWResult.constFirst().mult);
+#endif
 }
 
 TYPED_TEST(DoubleSocketedContainersReduceTest, reduceEmpty)
@@ -209,7 +228,6 @@ TYPED_TEST(DoubleSocketedContainersReduceTest, reduceEmpty)
     ReduceResult::counter = 0;
     typename TestFixture::Source emptyContainer;
     ReduceResult complexResult;
-    QVector<ReduceResult> complexCOWResult;
     ASSERT_EQ(1, ReduceResult::counter);
 
     complexResult = traverse::reduce(emptyContainer, TestFixture::complexReducer, ReduceResult{0, 1});
@@ -222,10 +240,13 @@ TYPED_TEST(DoubleSocketedContainersReduceTest, reduceEmpty)
     EXPECT_EQ(0, complexResult.sum);
     EXPECT_EQ(1, complexResult.mult);
 
+#ifdef ASYNQRO_QT_SUPPORT
     auto initial = QVector<ReduceResult>();
     initial.append({0, 1});
-    complexCOWResult = traverse::reduce(emptyContainer, TestFixture::complexCOWReducer, std::move(initial));
+    QVector<ReduceResult> complexCOWResult = traverse::reduce(emptyContainer, TestFixture::complexCOWReducer,
+                                                              std::move(initial));
     EXPECT_EQ(4, ReduceResult::counter);
     EXPECT_EQ(0, complexCOWResult.constFirst().sum);
     EXPECT_EQ(1, complexCOWResult.constFirst().mult);
+#endif
 }

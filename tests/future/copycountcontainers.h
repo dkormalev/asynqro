@@ -1,12 +1,17 @@
 #ifndef COPYCOUNTCONTAINERS_H
 #define COPYCOUNTCONTAINERS_H
-#include <QLinkedList>
-#include <QList>
-#include <QVector>
 
+#ifdef ASYNQRO_QT_SUPPORT
+#    include <QLinkedList>
+#    include <QList>
+#    include <QVector>
+#endif
+
+#include <atomic>
 #include <list>
 #include <vector>
 
+#ifdef ASYNQRO_QT_SUPPORT
 template <typename T>
 class CopyCountQVector : public QVector<T>
 {
@@ -69,6 +74,7 @@ public:
     static inline std::atomic_int createCounter{0};
     static inline std::atomic_int copyCounter{0};
 };
+#endif
 
 template <typename T>
 class CopyCountVector : public std::vector<T>

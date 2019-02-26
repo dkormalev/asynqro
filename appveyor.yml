@@ -7,10 +7,14 @@ configuration:
 platform:
 - x64
 environment:
+  arch: Win64
   matrix:
-  - arch: Win64
+    - with_qt: ON
+      prefix_path: C:/Qt/5.11/msvc2017_64
+    - with_qt: OFF
+      prefix_path:
 matrix:
-  fast_finish: true
+  fast_finish: false
 
 skip_commits:
   files:
@@ -37,7 +41,7 @@ before_build:
     mkdir build
     cd build
     cmake --version
-    cmake -DCMAKE_PREFIX_PATH=C:/Qt/5.11/msvc2017_64 -DASYNQRO_BUILD_TESTS=ON .. -G %generator%
+    cmake -DCMAKE_PREFIX_PATH=%prefix_path% -DASYNQRO_BUILD_TESTS=ON -DASYNQRO_QT_SUPPORT=%with_qt% .. -G %generator%
 build:
   project: c:\projects\asynqro\build\asynqro.sln
   verbosity: minimal

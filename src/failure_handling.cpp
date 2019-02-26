@@ -25,24 +25,24 @@
 #include "asynqro/impl/failure_handling.h"
 
 namespace asynqro::detail {
-static thread_local QVariant _lastFailure = QVariant();
+static thread_local std::any _lastFailure{};
 
 bool hasLastFailure() noexcept
 {
-    return _lastFailure.isValid();
-}
-
-QVariant lastFailure() noexcept
-{
-    return _lastFailure;
+    return _lastFailure.has_value();
 }
 
 void invalidateLastFailure() noexcept
 {
-    _lastFailure = QVariant();
+    _lastFailure.reset();
 }
 
-void setLastFailure(const QVariant &failure) noexcept
+const std::any &lastFailureAny() noexcept
+{
+    return _lastFailure;
+}
+
+void setLastFailureAny(const std::any &failure) noexcept
 {
     _lastFailure = failure;
 }

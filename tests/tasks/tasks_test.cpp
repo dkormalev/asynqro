@@ -1,7 +1,8 @@
 #include "tasksbasetest.h"
 
-#include <QSet>
-#include <QVector>
+#include <chrono>
+
+using namespace std::chrono_literals;
 
 class TasksTest : public TasksBaseTest
 {};
@@ -20,8 +21,8 @@ TEST_F(TasksTest, changeCapacities)
 {
     auto dispatcher = TasksDispatcher::instance();
 
-    qint32 oldCapacity = dispatcher->capacity();
-    qint32 newCapacity = oldCapacity + 10;
+    int32_t oldCapacity = dispatcher->capacity();
+    int32_t newCapacity = oldCapacity + 10;
     dispatcher->setCapacity(newCapacity);
     ASSERT_EQ(newCapacity, dispatcher->capacity());
     dispatcher->setCapacity(oldCapacity);
@@ -34,7 +35,7 @@ TEST_F(TasksTest, changeCapacities)
     dispatcher->setBoundCapacity(oldCapacity);
     ASSERT_EQ(oldCapacity, dispatcher->subPoolCapacity(TaskType::ThreadBound));
 
-    qint32 customLimit = dispatcher->subPoolCapacity(TaskType::Intensive) * 3;
+    int32_t customLimit = dispatcher->subPoolCapacity(TaskType::Intensive) * 3;
     EXPECT_NE(customLimit, dispatcher->subPoolCapacity(TaskType::Custom, 42));
     dispatcher->addCustomTag(42, customLimit);
     EXPECT_EQ(customLimit, dispatcher->subPoolCapacity(TaskType::Custom, 42));
@@ -48,8 +49,8 @@ TEST_F(TasksTest, changeCapacities)
 TEST_F(TasksTest, changeIdleLoopsAmount)
 {
     auto dispatcher = TasksDispatcher::instance();
-    qint32 oldIdleLoops = dispatcher->idleLoopsAmount();
-    qint32 newIdleLoops = oldIdleLoops + 20000;
+    int_fast32_t oldIdleLoops = dispatcher->idleLoopsAmount();
+    int_fast32_t newIdleLoops = oldIdleLoops + 20000;
     dispatcher->setIdleLoopsAmount(newIdleLoops);
     ASSERT_EQ(newIdleLoops, dispatcher->idleLoopsAmount());
     dispatcher->setIdleLoopsAmount(oldIdleLoops);
@@ -65,8 +66,8 @@ TEST_F(TasksTest, singleTask)
 
 TEST_F(TasksTest, singleDeferredTask)
 {
-    Promise<int> innerPromise;
-    Future<int> result = run([innerPromise]() { return innerPromise.future(); });
+    TestPromise<int> innerPromise;
+    TestFuture<int> result = run([innerPromise]() { return innerPromise.future(); });
     EXPECT_FALSE(result.isCompleted());
     innerPromise.success(42);
     result.wait(10000);
@@ -79,7 +80,7 @@ TEST_F(TasksTest, singleDeferredTask)
 TEST_F(TasksTest, singleVoidTask)
 {
     std::atomic_bool flag{false};
-    Future<bool> result = run([&flag]() { flag = true; });
+    TestFuture<bool> result = run([&flag]() { flag = true; });
     result.wait(10000);
     ASSERT_TRUE(result.isCompleted());
     EXPECT_TRUE(result.isSucceeded());
@@ -90,7 +91,7 @@ TEST_F(TasksTest, singleVoidTask)
 
 TEST_F(TasksTest, singleRunAndForgetTask)
 {
-    Promise<TasksTestResult<int>> p;
+    TestPromise<TasksTestResult<int>> p;
     runAndForget([p]() { p.success(pairedResult(42)); });
     auto f = p.future();
     f.wait(10000);
@@ -105,16 +106,16 @@ TEST_F(TasksTest, singleRunAndForgetTask)
 TEST_F(TasksTest, taskCancelation)
 {
     TasksDispatcher::instance()->addCustomTag(11, 1);
-    Promise<int> blockingPromise;
+    TestPromise<int> blockingPromise;
     run([blockingPromise]() { blockingPromise.future().wait(); }, TaskType::Custom, 11);
     std::atomic_bool executed{false};
-    CancelableFuture<int> f = run(
+    CancelableTestFuture<int> f = run(
         [&executed]() {
             executed = true;
             return 42;
         },
         TaskType::Custom, 11);
-    CancelableFuture<int> f2 = run([]() { return 42; }, TaskType::Custom, 11);
+    CancelableTestFuture<int> f2 = run([]() { return 42; }, TaskType::Custom, 11);
     f.cancel();
     blockingPromise.success(1);
     f.wait(10000);
@@ -126,23 +127,23 @@ TEST_F(TasksTest, taskCancelation)
     EXPECT_FALSE(executed);
     EXPECT_FALSE(f.isSucceeded());
     EXPECT_TRUE(f.isFailed());
-    EXPECT_EQ("Canceled", f.failureReason().toString());
+    EXPECT_EQ("Canceled", f.failureReason());
 }
 
 TEST_F(TasksTest, deferedTaskCancelation)
 {
     TasksDispatcher::instance()->addCustomTag(11, 1);
-    Promise<int> blockingPromise;
+    TestPromise<int> blockingPromise;
     run([blockingPromise]() { return blockingPromise.future().wait(); }, TaskType::Custom, 11);
     std::atomic_bool executed{false};
-    Promise<int> innerPromise;
-    CancelableFuture<int> f = run(
+    TestPromise<int> innerPromise;
+    CancelableTestFuture<int> f = run(
         [innerPromise, &executed]() {
             executed = true;
             return innerPromise.future();
         },
         TaskType::Custom, 11);
-    CancelableFuture<int> f2 = run([]() { return 42; }, TaskType::Custom, 11);
+    CancelableTestFuture<int> f2 = run([]() { return 42; }, TaskType::Custom, 11);
     f.cancel();
     blockingPromise.success(1);
     f.wait(10000);
@@ -154,17 +155,17 @@ TEST_F(TasksTest, deferedTaskCancelation)
     EXPECT_FALSE(executed);
     EXPECT_FALSE(f.isSucceeded());
     EXPECT_TRUE(f.isFailed());
-    EXPECT_EQ("Canceled", f.failureReason().toString());
+    EXPECT_EQ("Canceled", f.failureReason());
 }
 
 TEST_F(TasksTest, voidTaskCancelation)
 {
     TasksDispatcher::instance()->addCustomTag(11, 1);
-    Promise<int> blockingPromise;
+    TestPromise<int> blockingPromise;
     run([blockingPromise]() { return blockingPromise.future().wait(); }, TaskType::Custom, 11);
     std::atomic_bool executed{false};
-    CancelableFuture<bool> f = run([&executed]() { executed = true; }, TaskType::Custom, 11);
-    CancelableFuture<int> f2 = run([]() { return 42; }, TaskType::Custom, 11);
+    CancelableTestFuture<bool> f = run([&executed]() { executed = true; }, TaskType::Custom, 11);
+    CancelableTestFuture<int> f2 = run([]() { return 42; }, TaskType::Custom, 11);
     f.cancel();
     blockingPromise.success(1);
     f.wait(10000);
@@ -176,14 +177,14 @@ TEST_F(TasksTest, voidTaskCancelation)
     EXPECT_FALSE(executed);
     EXPECT_FALSE(f.isSucceeded());
     EXPECT_TRUE(f.isFailed());
-    EXPECT_EQ("Canceled", f.failureReason().toString());
+    EXPECT_EQ("Canceled", f.failureReason());
 }
 
 TEST_F(TasksTest, taskPriority)
 {
     TasksDispatcher::instance()->addCustomTag(11, 1);
-    Promise<int> blockingPromise;
-    Promise<int> blockingPromise2;
+    TestPromise<int> blockingPromise;
+    TestPromise<int> blockingPromise2;
     run([blockingPromise]() { blockingPromise.future().wait(); }, TaskType::Custom, 11);
     run([blockingPromise2]() { blockingPromise2.future().wait(); }, TaskType::Custom, 11);
     auto postponed = run([]() { return 24; }, TaskType::Custom, 11);
@@ -205,8 +206,8 @@ TEST_F(TasksTest, taskPriority)
 
 TEST_F(TasksTest, singleDeferredTaskWithFailure)
 {
-    Promise<int> innerPromise;
-    Future<int> result = run([innerPromise]() { return innerPromise.future(); });
+    TestPromise<int> innerPromise;
+    TestFuture<int> result = run([innerPromise]() { return innerPromise.future(); });
     EXPECT_FALSE(result.isCompleted());
     innerPromise.failure("failed");
     result.wait(10000);
@@ -214,32 +215,32 @@ TEST_F(TasksTest, singleDeferredTaskWithFailure)
     EXPECT_FALSE(result.isSucceeded());
     EXPECT_TRUE(result.isFailed());
     EXPECT_EQ(0, result.result());
-    EXPECT_EQ("failed", result.failureReason().toString());
+    EXPECT_EQ("failed", result.failureReason());
 }
 
 TEST_F(TasksTest, multipleTasks)
 {
     std::atomic_bool ready{false};
     int n = 5;
-    QVector<Future<TasksTestResult<int>>> results;
+    std::vector<TestFuture<TasksTestResult<int>>> results;
     for (int i = 0; i < n; ++i) {
-        results << run(TaskType::Custom, 0, [&ready, i]() {
+        results.push_back(run(TaskType::Custom, 0, [&ready, i]() {
             while (!ready)
-                QThread::msleep(1);
+                std::this_thread::sleep_for(1ms);
             return pairedResult(i * 2);
-        });
+        }));
     }
     for (int i = 0; i < n; ++i)
-        EXPECT_FALSE(results[i].isCompleted());
+        EXPECT_FALSE(results[static_cast<size_t>(i)].isCompleted());
     ready = true;
-    QSet<quint64> threads;
+    std::set<std::thread::id> threads;
     for (int i = n - 1; i >= 0; --i) {
-        auto result = results[i].result();
-        threads << result.first;
+        auto result = results[static_cast<size_t>(i)].result();
+        threads.insert(result.first);
         EXPECT_NE(currentThread(), result.first);
         EXPECT_EQ(i * 2, result.second);
     }
-    EXPECT_EQ(n, threads.count());
+    EXPECT_EQ(n, threads.size());
 }
 
 TEST_F(TasksTest, multipleTasksOverCapacity)
@@ -247,56 +248,55 @@ TEST_F(TasksTest, multipleTasksOverCapacity)
     std::atomic_bool ready{false};
     std::atomic_int runCounter{0};
     int n = TasksDispatcher::instance()->capacity() * 2;
-    QVector<Future<int>> results;
+    std::vector<TestFuture<int>> results;
     for (int i = 0; i < n; ++i) {
-        results << run(TaskType::Custom, 0, [&ready, &runCounter, i]() {
+        results.push_back(run(TaskType::Custom, 0, [&ready, &runCounter, i]() {
             ++runCounter;
             while (!ready)
-                QThread::msleep(1);
+                std::this_thread::sleep_for(1ms);
             return i * 2;
-        });
+        }));
     }
-    QTime timeout;
-    timeout.start();
-    while (runCounter < TasksDispatcher::instance()->capacity() && timeout.elapsed() < 10000)
+
+    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+    while (runCounter < TasksDispatcher::instance()->capacity() && std::chrono::high_resolution_clock::now() < timeout)
         ;
-    QThread::msleep(25);
+    std::this_thread::sleep_for(25ms);
     EXPECT_EQ(TasksDispatcher::instance()->capacity(), runCounter);
     for (int i = 0; i < n; ++i)
-        EXPECT_FALSE(results[i].isCompleted());
+        EXPECT_FALSE(results[static_cast<size_t>(i)].isCompleted());
     ready = true;
     for (int i = 0; i < n; ++i)
-        EXPECT_EQ(i * 2, results[i].result());
+        EXPECT_EQ(i * 2, results[static_cast<size_t>(i)].result());
 }
 
 TEST_F(TasksTest, multipleTasksOverChangedCapacity)
 {
-    qint32 newCapacity = TasksDispatcher::instance()->capacity() + 10;
+    int32_t newCapacity = TasksDispatcher::instance()->capacity() + 10;
     TasksDispatcher::instance()->setCapacity(newCapacity);
     ASSERT_EQ(newCapacity, TasksDispatcher::instance()->capacity());
     std::atomic_bool ready{false};
     std::atomic_int runCounter{0};
     int n = TasksDispatcher::instance()->capacity() * 2;
-    QVector<Future<int>> results;
+    std::vector<TestFuture<int>> results;
     for (int i = 0; i < n; ++i) {
-        results << run(TaskType::Custom, 0, [&ready, &runCounter, i]() {
+        results.push_back(run(TaskType::Custom, 0, [&ready, &runCounter, i]() {
             ++runCounter;
             while (!ready)
-                QThread::msleep(1);
+                std::this_thread::sleep_for(1ms);
             return i * 2;
-        });
+        }));
     }
-    QTime timeout;
-    timeout.start();
-    while (runCounter < TasksDispatcher::instance()->capacity() && timeout.elapsed() < 10000)
+    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+    while (runCounter < TasksDispatcher::instance()->capacity() && std::chrono::high_resolution_clock::now() < timeout)
         ;
-    QThread::msleep(25);
+    std::this_thread::sleep_for(25ms);
     EXPECT_EQ(TasksDispatcher::instance()->capacity(), runCounter);
     for (int i = 0; i < n; ++i)
-        EXPECT_FALSE(results[i].isCompleted());
+        EXPECT_FALSE(results[static_cast<size_t>(i)].isCompleted());
     ready = true;
     for (int i = 0; i < n; ++i)
-        EXPECT_EQ(i * 2, results[i].result());
+        EXPECT_EQ(i * 2, results[static_cast<size_t>(i)].result());
 }
 
 TEST_F(TasksTest, multipleIntensiveTasksOverCapacity)
@@ -305,28 +305,27 @@ TEST_F(TasksTest, multipleIntensiveTasksOverCapacity)
     std::atomic_int runCounter{0};
     int capacity = TasksDispatcher::instance()->subPoolCapacity(TaskType::Intensive);
     int n = capacity * 2;
-    QVector<Future<int>> results;
+    std::vector<TestFuture<int>> results;
     for (int i = 0; i < n; ++i) {
-        results << run(
+        results.push_back(run(
             [&ready, &runCounter, i]() {
                 ++runCounter;
                 while (!ready)
-                    QThread::msleep(1);
+                    std::this_thread::sleep_for(1ms);
                 return i * 2;
             },
-            TaskType::Intensive);
+            TaskType::Intensive));
     }
-    QTime timeout;
-    timeout.start();
-    while (runCounter < capacity && timeout.elapsed() < 10000)
+    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+    while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)
         ;
-    QThread::msleep(25);
+    std::this_thread::sleep_for(25ms);
     EXPECT_EQ(capacity, runCounter);
     for (int i = 0; i < n; ++i)
-        EXPECT_FALSE(results[i].isCompleted());
+        EXPECT_FALSE(results[static_cast<size_t>(i)].isCompleted());
     ready = true;
     for (int i = 0; i < n; ++i)
-        EXPECT_EQ(i * 2, results[i].result());
+        EXPECT_EQ(i * 2, results[static_cast<size_t>(i)].result());
 }
 
 TEST_F(TasksTest, multipleCustomTasksOverCapacity)
@@ -338,37 +337,37 @@ TEST_F(TasksTest, multipleCustomTasksOverCapacity)
     TasksDispatcher::instance()->addCustomTag(42, capacity);
     int otherCapacity = TasksDispatcher::instance()->subPoolCapacity(TaskType::Custom, 24);
     int n = otherCapacity * 2;
-    QVector<Future<int>> results;
-    QVector<Future<int>> otherResults;
+    std::vector<TestFuture<int>> results;
+    std::vector<TestFuture<int>> otherResults;
     for (int i = 0; i < n; ++i) {
-        results << run(TaskType::Custom, 42, [&ready, &runCounter, i]() {
+        results.push_back(run(TaskType::Custom, 42, [&ready, &runCounter, i]() {
             ++runCounter;
             while (!ready)
-                QThread::msleep(1);
+                std::this_thread::sleep_for(1ms);
             return i * 2;
-        });
-        otherResults << run(TaskType::Custom, 24, [&ready, &otherRunCounter, i]() {
+        }));
+        otherResults.push_back(run(TaskType::Custom, 24, [&ready, &otherRunCounter, i]() {
             ++otherRunCounter;
             while (!ready)
-                QThread::msleep(1);
+                std::this_thread::sleep_for(1ms);
             return i * 3;
-        });
+        }));
     }
-    QTime timeout;
-    timeout.start();
-    while ((runCounter < capacity || otherRunCounter < otherCapacity) && timeout.elapsed() < 10000)
+    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+    while ((runCounter < capacity || otherRunCounter < otherCapacity)
+           && std::chrono::high_resolution_clock::now() < timeout)
         ;
-    QThread::msleep(25);
+    std::this_thread::sleep_for(25ms);
     EXPECT_EQ(capacity, runCounter);
     EXPECT_EQ(otherCapacity, otherRunCounter);
     for (int i = 0; i < n; ++i) {
-        EXPECT_FALSE(results[i].isCompleted());
-        EXPECT_FALSE(otherResults[i].isCompleted());
+        EXPECT_FALSE(results[static_cast<size_t>(i)].isCompleted());
+        EXPECT_FALSE(otherResults[static_cast<size_t>(i)].isCompleted());
     }
     ready = true;
     for (int i = 0; i < n; ++i) {
-        EXPECT_EQ(i * 2, results[i].result());
-        EXPECT_EQ(i * 3, otherResults[i].result());
+        EXPECT_EQ(i * 2, results[static_cast<size_t>(i)].result());
+        EXPECT_EQ(i * 3, otherResults[static_cast<size_t>(i)].result());
     }
 }
 
@@ -376,31 +375,30 @@ TEST_F(TasksTest, multipleTasksWithFailure)
 {
     std::atomic_bool ready{false};
     int n = 5;
-    QVector<Future<TasksTestResult<int>>> results;
+    std::vector<TestFuture<TasksTestResult<int>>> results;
     for (int i = 0; i < n; ++i) {
-        results << run([&ready, i]() -> TasksTestResult<int> {
+        results.push_back(run([&ready, i]() -> TasksTestResult<int> {
             while (!ready)
                 ;
             if (i % 2)
-                return WithFailure("failed");
+                return WithTestFailure("failed");
             else
                 return pairedResult(i * 2);
-        });
+        }));
     }
     for (int i = 0; i < n; ++i)
-        EXPECT_FALSE(results[i].isCompleted());
+        EXPECT_FALSE(results[static_cast<size_t>(i)].isCompleted());
     ready = true;
     for (int i = 0; i < n; ++i) {
-        results[i].wait(10000);
-        ASSERT_TRUE(results[i].isCompleted()) << i;
+        results[static_cast<size_t>(i)].wait(10000);
+        ASSERT_TRUE(results[static_cast<size_t>(i)].isCompleted()) << i;
         if (i % 2) {
-            ASSERT_TRUE(results[i].isFailed()) << i;
-            EXPECT_EQ("failed", results[i].failureReason().toString()) << i;
-            EXPECT_EQ(0ull, results[i].result().first) << i;
-            EXPECT_EQ(0, results[i].result().second) << i;
+            ASSERT_TRUE(results[static_cast<size_t>(i)].isFailed()) << i;
+            EXPECT_EQ("failed", results[static_cast<size_t>(i)].failureReason()) << i;
+            EXPECT_EQ(0, results[static_cast<size_t>(i)].result().second) << i;
         } else {
-            ASSERT_TRUE(results[i].isSucceeded()) << i;
-            auto result = results[i].result();
+            ASSERT_TRUE(results[static_cast<size_t>(i)].isSucceeded()) << i;
+            auto result = results[static_cast<size_t>(i)].result();
             EXPECT_NE(currentThread(), result.first) << i;
             EXPECT_EQ(i * 2, result.second) << i;
         }
@@ -410,12 +408,12 @@ TEST_F(TasksTest, multipleTasksWithFailure)
 TEST_F(TasksTest, mappedTaskWithFailure)
 {
     std::atomic_bool ready{false};
-    Future<int> future = run([&ready]() {
+    TestFuture<int> future = run([&ready]() {
         while (!ready)
             ;
         return 42;
     });
-    Future<int> mappedFuture = future.map([](int x) -> int { return WithFailure(x); });
+    TestFuture<int> mappedFuture = future.map([](int x) -> int { return WithTestFailure(std::to_string(x)); });
     EXPECT_FALSE(future.isCompleted());
     ready = true;
     mappedFuture.wait(10000);
@@ -425,5 +423,5 @@ TEST_F(TasksTest, mappedTaskWithFailure)
     ASSERT_TRUE(mappedFuture.isCompleted());
     ASSERT_TRUE(mappedFuture.isFailed());
     EXPECT_EQ(0, mappedFuture.result());
-    EXPECT_EQ(42, mappedFuture.failureReason().toInt());
+    EXPECT_EQ("42", mappedFuture.failureReason());
 }

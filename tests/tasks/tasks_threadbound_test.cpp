@@ -1,7 +1,6 @@
 #include "tasksbasetest.h"
 
-#include <QSet>
-#include <QVector>
+#include <thread>
 
 class TasksThreadBoundTest : public TasksBaseTest
 {};
@@ -42,30 +41,30 @@ TEST_F(TasksThreadBoundTest, threadBindingToDifferentKeys)
 {
     auto task = []() { return pairedResult(1); };
 
-    QVector<Future<TasksTestResult<int>>> firstResults;
-    QVector<Future<TasksTestResult<int>>> secondResults;
+    std::vector<TestFuture<TasksTestResult<int>>> firstResults;
+    std::vector<TestFuture<TasksTestResult<int>>> secondResults;
     int n = TasksDispatcher::instance()->capacity() * 2;
     for (int i = 0; i < n; ++i) {
-        firstResults << run(task, TaskType::ThreadBound, 1);
-        secondResults << run(task, TaskType::ThreadBound, 2);
+        firstResults.push_back(run(task, TaskType::ThreadBound, 1));
+        secondResults.push_back(run(task, TaskType::ThreadBound, 2));
     }
 
-    unsigned long long firstThread = 0ull;
-    unsigned long long secondThread = 0ull;
-    for (int i = 0; i < firstResults.count(); ++i) {
+    std::thread::id firstThread = std::this_thread::get_id();
+    std::thread::id secondThread = std::this_thread::get_id();
+    for (size_t i = 0; i < firstResults.size(); ++i) {
         auto r = firstResults[i];
         r.wait(10000);
         ASSERT_TRUE(r.isCompleted() && r.isSucceeded()) << i << "; " << r.isCompleted() << "; " << r.isSucceeded();
-        if (!firstThread)
+        if (firstThread == std::this_thread::get_id())
             firstThread = r.result().first;
         EXPECT_NE(currentThread(), r.result().first);
         EXPECT_EQ(firstThread, r.result().first);
     }
-    for (int i = 0; i < secondResults.count(); ++i) {
+    for (size_t i = 0; i < secondResults.size(); ++i) {
         auto r = secondResults[i];
         r.wait(10000);
         ASSERT_TRUE(r.isCompleted() && r.isSucceeded()) << i << "; " << r.isCompleted() << "; " << r.isSucceeded();
-        if (!secondThread)
+        if (secondThread == std::this_thread::get_id())
             secondThread = r.result().first;
         EXPECT_NE(currentThread(), r.result().first);
         EXPECT_EQ(secondThread, r.result().first);
@@ -77,52 +76,52 @@ TEST_F(TasksThreadBoundTest, threadBindingToLotsOfKeys)
 {
     auto task = []() { return pairedResult(1); };
 
-    QVector<Future<TasksTestResult<int>>> results;
+    std::vector<TestFuture<TasksTestResult<int>>> results;
     int n = TasksDispatcher::instance()->subPoolCapacity(TaskType::ThreadBound) * 10;
     for (int i = 1; i <= n; ++i) {
         for (int j = 0; j < 10; ++j) {
-            results << run(task, TaskType::ThreadBound, 2 * i);
-            results << run(task, TaskType::ThreadBound, 2 * i + 1);
+            results.push_back(run(task, TaskType::ThreadBound, 2 * i));
+            results.push_back(run(task, TaskType::ThreadBound, 2 * i + 1));
         }
     }
 
-    QSet<unsigned long long> threads;
-    for (int i = 0; i < results.count(); ++i) {
+    std::set<std::thread::id> threads;
+    for (size_t i = 0; i < results.size(); ++i) {
         auto r = results[i];
         r.wait(10000);
         ASSERT_TRUE(r.isCompleted() && r.isSucceeded()) << i << "; " << r.isCompleted() << "; " << r.isSucceeded();
-        threads << r.result().first;
+        threads.insert(r.result().first);
     }
-    EXPECT_GE(TasksDispatcher::instance()->subPoolCapacity(TaskType::ThreadBound), threads.count());
+    EXPECT_GE(TasksDispatcher::instance()->subPoolCapacity(TaskType::ThreadBound), threads.size());
 }
 
 TEST_F(TasksThreadBoundTest, threadBindingAmongNormalTasks)
 {
     auto task = []() { return pairedResult(1); };
 
-    QVector<Future<TasksTestResult<int>>> boundResults;
-    QVector<Future<TasksTestResult<int>>> otherResults;
+    std::vector<TestFuture<TasksTestResult<int>>> boundResults;
+    std::vector<TestFuture<TasksTestResult<int>>> otherResults;
     int n = TasksDispatcher::instance()->capacity() * 10;
     for (int i = 0; i < n; ++i) {
         if (i % 5)
-            otherResults << run(task, TaskType::Intensive);
+            otherResults.push_back(run(task, TaskType::Intensive));
         else
-            boundResults << run(task, TaskType::ThreadBound, 1);
+            boundResults.push_back(run(task, TaskType::ThreadBound, 1));
     }
 
-    EXPECT_NE(0, boundResults.count());
-    EXPECT_NE(0, otherResults.count());
-    unsigned long long boundThread = 0ull;
-    for (int i = 0; i < boundResults.count(); ++i) {
+    EXPECT_NE(0, boundResults.size());
+    EXPECT_NE(0, otherResults.size());
+    std::thread::id boundThread = std::this_thread::get_id();
+    for (size_t i = 0; i < boundResults.size(); ++i) {
         auto r = boundResults[i];
         r.wait(10000);
         ASSERT_TRUE(r.isCompleted() && r.isSucceeded()) << i << "; " << r.isCompleted() << "; " << r.isSucceeded();
-        if (!boundThread)
+        if (boundThread == std::this_thread::get_id())
             boundThread = r.result().first;
         EXPECT_NE(currentThread(), r.result().first) << i;
         EXPECT_EQ(boundThread, r.result().first) << i;
     }
-    for (int i = 0; i < otherResults.count(); ++i) {
+    for (size_t i = 0; i < otherResults.size(); ++i) {
         auto r = otherResults[i];
         r.wait(10000);
         ASSERT_TRUE(r.isCompleted() && r.isSucceeded()) << i << "; " << r.isCompleted() << "; " << r.isSucceeded();
@@ -133,44 +132,44 @@ TEST_F(TasksThreadBoundTest, threadBindingToDifferentKeysAmongOtherTasks)
 {
     auto task = []() { return pairedResult(1); };
 
-    QVector<Future<TasksTestResult<int>>> firstResults;
-    QVector<Future<TasksTestResult<int>>> secondResults;
-    QVector<Future<TasksTestResult<int>>> otherResults;
+    std::vector<TestFuture<TasksTestResult<int>>> firstResults;
+    std::vector<TestFuture<TasksTestResult<int>>> secondResults;
+    std::vector<TestFuture<TasksTestResult<int>>> otherResults;
     int n = TasksDispatcher::instance()->capacity() * 20;
     for (int i = 0; i < n; ++i) {
         if (i % 5)
-            otherResults << run(task, TaskType::Custom, 0);
+            otherResults.push_back(run(task, TaskType::Custom, 0));
         else if (i % 10)
-            firstResults << run(task, TaskType::ThreadBound, 1);
+            firstResults.push_back(run(task, TaskType::ThreadBound, 1));
         else
-            secondResults << run(task, TaskType::ThreadBound, 2);
+            secondResults.push_back(run(task, TaskType::ThreadBound, 2));
     }
 
-    EXPECT_NE(0, firstResults.count());
-    EXPECT_NE(0, secondResults.count());
-    EXPECT_NE(0, otherResults.count());
-    unsigned long long firstThread = 0ull;
-    unsigned long long secondThread = 0ull;
-    for (int i = 0; i < firstResults.count(); ++i) {
+    EXPECT_NE(0, firstResults.size());
+    EXPECT_NE(0, secondResults.size());
+    EXPECT_NE(0, otherResults.size());
+    std::thread::id firstThread = std::this_thread::get_id();
+    std::thread::id secondThread = std::this_thread::get_id();
+    for (size_t i = 0; i < firstResults.size(); ++i) {
         auto r = firstResults[i];
         r.wait(10000);
         ASSERT_TRUE(r.isCompleted() && r.isSucceeded()) << i << "; " << r.isCompleted() << "; " << r.isSucceeded();
-        if (!firstThread)
+        if (firstThread == std::this_thread::get_id())
             firstThread = r.result().first;
         EXPECT_NE(currentThread(), r.result().first);
         EXPECT_EQ(firstThread, r.result().first);
     }
-    for (int i = 0; i < secondResults.count(); ++i) {
+    for (size_t i = 0; i < secondResults.size(); ++i) {
         auto r = secondResults[i];
         r.wait(10000);
         ASSERT_TRUE(r.isCompleted() && r.isSucceeded()) << i << "; " << r.isCompleted() << "; " << r.isSucceeded();
-        if (!secondThread)
+        if (secondThread == std::this_thread::get_id())
             secondThread = r.result().first;
         EXPECT_NE(currentThread(), r.result().first);
         EXPECT_EQ(secondThread, r.result().first);
     }
     EXPECT_NE(firstThread, secondThread);
-    for (int i = 0; i < otherResults.count(); ++i) {
+    for (size_t i = 0; i < otherResults.size(); ++i) {
         auto r = otherResults[i];
         r.wait(10000);
         ASSERT_TRUE(r.isCompleted() && r.isSucceeded()) << i << "; " << r.isCompleted() << "; " << r.isSucceeded();

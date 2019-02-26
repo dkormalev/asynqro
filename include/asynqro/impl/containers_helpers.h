@@ -27,7 +27,14 @@
 
 #include "asynqro/impl/typetraits.h"
 
-#include <QPair>
+#ifdef ASYNQRO_QT_SUPPORT
+#    include <QHash>
+#    include <QMap>
+#    include <QMultiHash>
+#    include <QMultiMap>
+#    include <QPair>
+#    include <QSet>
+#endif
 
 #include <iterator>
 #include <map>
@@ -48,16 +55,26 @@ namespace containers {
 
 // clang-format off
 template <typename C>
-inline constexpr bool SetLike_V = IsSpecialization_V<C, QSet>
-                                  || IsSpecialization_V<C, std::set>
+inline constexpr bool SetLike_V = IsSpecialization_V<C, std::set>
                                   || IsSpecialization_V<C, std::multiset>
                                   || IsSpecialization_V<C, std::unordered_set>
-                                  || IsSpecialization_V<C, std::unordered_multiset>;
+                                  || IsSpecialization_V<C, std::unordered_multiset>
+#ifdef ASYNQRO_QT_SUPPORT
+                                  || IsSpecialization_V<C, QSet>
+#endif
+;
+
+#ifdef ASYNQRO_QT_SUPPORT
 template <typename C>
 inline constexpr bool QMapLike_V = IsSpecialization_V<C, QMap>
                                    || IsSpecialization_V<C, QHash>
                                    || IsSpecialization_V<C, QMultiMap>
                                    || IsSpecialization_V<C, QMultiHash>;
+#else
+template <typename C>
+inline constexpr bool QMapLike_V = false;
+#endif
+
 template <typename C>
 inline constexpr bool StlMapLike_V = IsSpecialization_V<C, std::map>
                                      || IsSpecialization_V<C, std::unordered_map>
@@ -96,13 +113,13 @@ auto add(C &container, Pair<T1, T2> &&value)
     container.insert(std::make_pair(value.first, value.second));
 }
 
-template <typename C, typename T, typename = std::enable_if_t<QMapLike_V<C>>>
+template <typename C, typename T, typename = std::enable_if_t<!StlMapLike_V<C>>>
 auto add(C &container, const T &value) -> decltype(container.insert(value.key(), value.value()), void())
 {
     container.insert(value.key(), value.value());
 }
 
-template <typename C, typename T, typename = std::enable_if_t<QMapLike_V<C>>>
+template <typename C, typename T, typename = std::enable_if_t<!StlMapLike_V<C>>>
 auto add(C &container, const T &value) -> decltype(container.insert(value.first, value.second), void())
 {
     container.insert(value.first, value.second);

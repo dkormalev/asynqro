@@ -29,15 +29,13 @@
 #include "asynqro/impl/containers_traverse.h"
 #include "asynqro/impl/tasksdispatcher.h"
 
-#include <QVector>
-
 #include <cmath>
 
 namespace asynqro::tasks {
 namespace detail {
 using namespace asynqro::detail;
 
-template <typename Task, template <typename...> typename C, typename T>
+template <typename Runner, typename Task, typename C, typename T>
 struct SequenceHelper
 {
     static constexpr bool isIndexed = std::is_invocable_v<Task, long long, T>;
@@ -50,153 +48,171 @@ public:
 
 private:
     static constexpr bool rawTaskResultIsVoid = std::is_same_v<RawTaskResult, void>;
+    using FinalFailure =
+        std::conditional_t<Runner::Info::deferredFailureShouldBeConverted, typename Runner::Info::PlainFailure,
+                           detail::FailureTypeIfFuture_T<RawTaskResult, typename Runner::Info::PlainFailure>>;
 
 public:
     using TaskResult = std::conditional_t<rawTaskResultIsVoid, bool, RawTaskResult>;
-    using RunResult = std::conditional_t<rawTaskResultIsVoid, Future<bool>, Future<ValueTypeIfFuture_T<TaskResult>>>;
-    using SequenceInnerResult = Future<C<ValueTypeIfFuture_T<TaskResult>>>;
-    using SequenceFinalResult = std::conditional_t<rawTaskResultIsVoid, Future<bool>, SequenceInnerResult>;
+    using RunResult = std::conditional_t<rawTaskResultIsVoid, Future<bool, FinalFailure>,
+                                         Future<ValueTypeIfFuture_T<TaskResult>, FinalFailure>>;
+    using SequenceInnerResult = Future<WithInnerType_T<C, ValueTypeIfFuture_T<TaskResult>>, FinalFailure>;
+    using SequenceFinalResult = std::conditional_t<rawTaskResultIsVoid, Future<bool, FinalFailure>, SequenceInnerResult>;
 
     static inline SequenceFinalResult finalizeResult(const SequenceInnerResult &result)
     {
         if constexpr (rawTaskResultIsVoid)
             return result.andThenValue(true);
-        else
+        else // NOLINT(readability-else-after-return)
             return result;
     }
 };
+
+struct DefaultRunnerInfo
+{
+    using PlainFailure = std::string;
+    constexpr static bool deferredFailureShouldBeConverted = false;
+};
+using DefaultRunner = TaskRunner<DefaultRunnerInfo>;
+
 } // namespace detail
 
-template <typename Task>
-auto run(Task &&task, TaskType type = TaskType::Intensive, qint32 tag = 0,
+template <typename Runner = detail::DefaultRunner, typename Task, typename = std::enable_if_t<std::is_invocable_v<Task>>>
+auto run(Task &&task, TaskType type = TaskType::Intensive, int32_t tag = 0,
          TaskPriority priority = TaskPriority::Regular) noexcept
 {
-    return TasksDispatcher::instance()->run(std::forward<Task>(task), type, tag, priority);
+    return Runner::run(std::forward<Task>(task), type, tag, priority);
 }
 
-template <typename Task>
-auto run(TaskType type, qint32 tag, TaskPriority priority, Task &&task) noexcept
+template <typename Runner = detail::DefaultRunner, typename Task, typename = std::enable_if_t<std::is_invocable_v<Task>>>
+auto run(TaskType type, int32_t tag, TaskPriority priority, Task &&task) noexcept
 {
-    return TasksDispatcher::instance()->run(std::forward<Task>(task), type, tag, priority);
+    return Runner::run(std::forward<Task>(task), type, tag, priority);
 }
 
-template <typename Task>
-auto run(TaskType type, qint32 tag, Task &&task) noexcept
+template <typename Runner = detail::DefaultRunner, typename Task, typename = std::enable_if_t<std::is_invocable_v<Task>>>
+auto run(TaskType type, int32_t tag, Task &&task) noexcept
 {
-    return TasksDispatcher::instance()->run(std::forward<Task>(task), type, tag, TaskPriority::Regular);
+    return Runner::run(std::forward<Task>(task), type, tag, TaskPriority::Regular);
 }
 
-template <typename Task>
+template <typename Runner = detail::DefaultRunner, typename Task, typename = std::enable_if_t<std::is_invocable_v<Task>>>
 auto run(TaskPriority priority, Task &&task) noexcept
 {
-    return TasksDispatcher::instance()->run(std::forward<Task>(task), TaskType::Intensive, 0, priority);
+    return Runner::run(std::forward<Task>(task), TaskType::Intensive, 0, priority);
 }
 
-template <typename Task>
-void runAndForget(Task &&task, TaskType type = TaskType::Intensive, qint32 tag = 0,
+template <typename Runner = detail::DefaultRunner, typename Task, typename = std::enable_if_t<std::is_invocable_v<Task>>>
+void runAndForget(Task &&task, TaskType type = TaskType::Intensive, int32_t tag = 0,
                   TaskPriority priority = TaskPriority::Regular) noexcept
 {
-    return TasksDispatcher::instance()->runAndForget(std::forward<Task>(task), type, tag, priority);
+    return Runner::runAndForget(std::forward<Task>(task), type, tag, priority);
 }
 
-template <typename Task>
-void runAndForget(TaskType type, qint32 tag, TaskPriority priority, Task &&task) noexcept
+template <typename Runner = detail::DefaultRunner, typename Task, typename = std::enable_if_t<std::is_invocable_v<Task>>>
+void runAndForget(TaskType type, int32_t tag, TaskPriority priority, Task &&task) noexcept
 {
-    return TasksDispatcher::instance()->runAndForget(std::forward<Task>(task), type, tag, priority);
+    return Runner::runAndForget(std::forward<Task>(task), type, tag, priority);
 }
 
-template <typename Task>
-void runAndForget(TaskType type, qint32 tag, Task &&task) noexcept
+template <typename Runner = detail::DefaultRunner, typename Task, typename = std::enable_if_t<std::is_invocable_v<Task>>>
+void runAndForget(TaskType type, int32_t tag, Task &&task) noexcept
 {
-    return TasksDispatcher::instance()->runAndForget(std::forward<Task>(task), type, tag, TaskPriority::Regular);
+    return Runner::runAndForget(std::forward<Task>(task), type, tag, TaskPriority::Regular);
 }
 
-template <typename Task>
+template <typename Runner = detail::DefaultRunner, typename Task, typename = std::enable_if_t<std::is_invocable_v<Task>>>
 void runAndForget(TaskPriority priority, Task &&task) noexcept
 {
-    return TasksDispatcher::instance()->runAndForget(std::forward<Task>(task), TaskType::Intensive, 0, priority);
+    return Runner::runAndForget(std::forward<Task>(task), TaskType::Intensive, 0, priority);
 }
 
-template <template <typename...> typename C, typename T, typename Task>
-auto run(const C<T> &data, Task &&f, TaskType type = TaskType::Intensive, qint32 tag = 0,
+template <typename Runner = detail::DefaultRunner, typename C, typename T = detail::InnerType_T<C>, typename Task,
+          typename = std::enable_if_t<std::is_invocable_v<Task, T> || std::is_invocable_v<Task, long long, T>>>
+auto run(const C &data, Task &&f, TaskType type = TaskType::Intensive, int32_t tag = 0,
          TaskPriority priority = TaskPriority::Regular) noexcept
 {
-    using TD = TasksDispatcher;
-    using Helper = detail::SequenceHelper<Task, C, T>;
+    using Helper = detail::SequenceHelper<Runner, Task, C, T>;
 
     if (!data.size())
         return Helper::SequenceFinalResult::successful();
 
-    C<typename Helper::RunResult> futures;
+    detail::WithInnerType_T<C, typename Helper::RunResult> futures;
     if constexpr (Helper::isIndexed) {
         futures = traverse::map(data, [f = std::forward<Task>(f), type, tag, priority](long long index, const T &x) {
-            return TD::instance()->run([index, x, f]() { return f(index, x); }, type, tag, priority).future();
+            return Runner::run([index, x, f]() { return f(index, x); }, type, tag, priority).future();
         });
     } else {
         futures = traverse::map(data, [f = std::forward<Task>(f), type, tag, priority](const T &x) {
-            return TD::instance()->run([x, f]() { return f(x); }, type, tag, priority).future();
+            return Runner::run([x, f]() { return f(x); }, type, tag, priority).future();
         });
     }
 
-    return Helper::finalizeResult(Future<>::sequence(futures));
+    return Helper::finalizeResult(Helper::RunResult::sequence(futures));
 }
 
-template <template <typename...> typename C, typename T, typename Task>
-auto clusteredRun(const C<T> &data, Task &&f, qint64 minClusterSize = 1, TaskType type = TaskType::Intensive,
-                  qint32 tag = 0, TaskPriority priority = TaskPriority::Regular) noexcept
+template <typename Runner = detail::DefaultRunner, typename C, typename T = detail::InnerType_T<C>, typename Task,
+          typename = std::enable_if_t<std::is_invocable_v<Task, T>>>
+auto clusteredRun(const C &data, Task &&f, int64_t minClusterSize = 1, TaskType type = TaskType::Intensive,
+                  int32_t tag = 0, TaskPriority priority = TaskPriority::Regular) noexcept
 {
-    C<T> dataCopy = data;
-    return clusteredRun(std::move(dataCopy), std::forward<Task>(f), minClusterSize, type, tag, priority);
+    C dataCopy = data;
+    return clusteredRun<Runner>(std::move(dataCopy), std::forward<Task>(f), minClusterSize, type, tag, priority);
 }
 
-template <template <typename...> typename C, typename T, typename Task,
-          typename Result = C<typename std::invoke_result_t<Task, T>>>
-Future<Result> clusteredRun(C<T> &&data, Task &&f, qint64 minClusterSize = 1, TaskType type = TaskType::Intensive,
-                            qint32 tag = 0, TaskPriority priority = TaskPriority::Regular) noexcept
+template <typename Runner = detail::DefaultRunner, typename C, typename T = detail::InnerType_T<C>, typename Task,
+          typename Result = detail::WithInnerType_T<C, typename std::invoke_result_t<Task, T>>,
+          typename ResultFuture = Future<Result, typename Runner::Info::PlainFailure>>
+ResultFuture clusteredRun(C &&data, Task &&f, int64_t minClusterSize = 1, TaskType type = TaskType::Intensive,
+                          int32_t tag = 0, TaskPriority priority = TaskPriority::Regular) noexcept
 {
     if (!data.size())
-        return Future<Result>::successful();
+        return ResultFuture::successful();
     if (minClusterSize <= 0)
         minClusterSize = 1;
 
-    return TasksDispatcher::instance()->run(
-        [data = std::forward<C<T>>(data), f = std::forward<Task>(f), minClusterSize, type, tag, priority]() -> Result {
-            qint64 amount = data.count();
-            qint32 capacity = TasksDispatcher::instance()->subPoolCapacity(type, tag);
-            capacity = qMin(static_cast<qint32>(ceil(amount / static_cast<double>(minClusterSize))), capacity);
-            qint32 clusterSize = static_cast<qint32>(amount / capacity);
+    return Runner::run(
+        [data = std::forward<C>(data), f = std::forward<Task>(f), minClusterSize, type, tag, priority]() -> Result {
+            int64_t amount = data.size();
+            int32_t capacity = TasksDispatcher::instance()->subPoolCapacity(type, tag);
+            capacity = std::min(static_cast<int32_t>(ceil(amount / static_cast<double>(minClusterSize))), capacity);
+            int32_t clusterSize = static_cast<int32_t>(amount / capacity);
             --capacity; // Last cluster will be processed in managing thread
             Result result;
             result.resize(amount);
-            QVector<Future<bool>> futures;
-            futures.reserve(capacity);
-            for (qint32 job = 0; job < capacity; ++job) {
-                futures << TasksDispatcher::instance()->run(
+            std::vector<Future<bool, typename Runner::Info::PlainFailure>> futures;
+            futures.reserve(static_cast<uint32_t>(capacity));
+            for (int32_t job = 0; job < capacity; ++job) {
+                futures.push_back(Runner::run(
                     [&data, &f, &result, job, clusterSize]() {
                         const auto right = (job + 1) * clusterSize;
-                        for (qint32 i = job * clusterSize; i < right && !detail::hasLastFailure(); ++i)
+                        for (int32_t i = job * clusterSize; i < right && !detail::hasLastFailure(); ++i)
                             result[i] = f(data[i]);
                     },
-                    type, tag, priority);
+                    type, tag, priority));
             }
-            QVariant localFailure;
+            typename Runner::Info::PlainFailure localFailure;
+            bool localFailureHappened = false;
             try {
-                for (qint32 i = capacity * clusterSize; i < amount && !detail::hasLastFailure(); ++i)
+                for (int32_t i = capacity * clusterSize; i < amount && !detail::hasLastFailure(); ++i)
                     result[i] = f(data[i]);
-                localFailure = detail::lastFailure();
+                localFailure = detail::lastFailure<typename Runner::Info::PlainFailure>();
+                localFailureHappened = detail::hasLastFailure();
             } catch (const std::exception &e) {
-                localFailure = detail::exceptionFailure(e);
+                localFailure = detail::exceptionFailure<typename Runner::Info::PlainFailure>(e);
+                localFailureHappened = true;
             } catch (...) {
-                localFailure = detail::exceptionFailure();
+                localFailure = detail::exceptionFailure<typename Runner::Info::PlainFailure>();
+                localFailureHappened = true;
             }
             detail::invalidateLastFailure();
-            for (const auto &future : qAsConst(futures))
+            for (const auto &future : futures)
                 future.wait();
-            if (localFailure.isValid())
-                return WithFailure(localFailure);
-            for (const auto &future : qAsConst(futures)) {
+            if (localFailureHappened)
+                return WithFailure<typename Runner::Info::PlainFailure>(localFailure);
+            for (const auto &future : futures) {
                 if (future.isFailed())
-                    return WithFailure(future.failureReason());
+                    return WithFailure<typename Runner::Info::PlainFailure>(future.failureReason());
             }
             return result;
         },

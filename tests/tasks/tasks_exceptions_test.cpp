@@ -1,7 +1,9 @@
 #include "tasksbasetest.h"
 
-#include <QSet>
-#include <QVector>
+#include <chrono>
+#include <vector>
+
+using namespace std::chrono_literals;
 
 class TasksExceptionsTest : public TasksBaseTest
 {};
@@ -13,7 +15,7 @@ TEST_F(TasksExceptionsTest, singleTaskException)
     ASSERT_TRUE(future.isCompleted());
     EXPECT_FALSE(future.isSucceeded());
     EXPECT_TRUE(future.isFailed());
-    EXPECT_EQ("Exception caught: Hi", future.failureReason().toString());
+    EXPECT_EQ("Exception: Hi", future.failureReason());
 }
 
 TEST_F(TasksExceptionsTest, singleTaskExceptionNonStd)
@@ -23,7 +25,7 @@ TEST_F(TasksExceptionsTest, singleTaskExceptionNonStd)
     ASSERT_TRUE(future.isCompleted());
     EXPECT_FALSE(future.isSucceeded());
     EXPECT_TRUE(future.isFailed());
-    EXPECT_EQ("Exception caught", future.failureReason().toString());
+    EXPECT_EQ("Exception", future.failureReason());
 }
 
 TEST_F(TasksExceptionsTest, singleRunAndForgetTaskException)
@@ -38,52 +40,52 @@ TEST_F(TasksExceptionsTest, singleRunAndForgetTaskExceptionNonStd)
 
 TEST_F(TasksExceptionsTest, sequenceRunException)
 {
-    auto future = run(QVector<int>{1, 2, 3}, [](int) { throw std::runtime_error("Hi"); });
+    auto future = run(std::vector<int>{1, 2, 3}, [](int) { throw std::runtime_error("Hi"); });
     future.wait(10000);
     ASSERT_TRUE(future.isCompleted());
     EXPECT_FALSE(future.isSucceeded());
     EXPECT_TRUE(future.isFailed());
-    EXPECT_EQ("Exception caught: Hi", future.failureReason().toString());
+    EXPECT_EQ("Exception: Hi", future.failureReason());
 }
 
 TEST_F(TasksExceptionsTest, sequenceRunExceptionNonStd)
 {
-    auto future = run(QVector<int>{1, 2, 3}, [](int) { throw 42; });
+    auto future = run(std::vector<int>{1, 2, 3}, [](int) { throw 42; });
     future.wait(10000);
     ASSERT_TRUE(future.isCompleted());
     EXPECT_FALSE(future.isSucceeded());
     EXPECT_TRUE(future.isFailed());
-    EXPECT_EQ("Exception caught", future.failureReason().toString());
+    EXPECT_EQ("Exception", future.failureReason());
 }
 
 TEST_F(TasksExceptionsTest, clusteredRunException)
 {
-    auto future = clusteredRun(QVector<int>{1, 2, 3}, [](int) -> int { throw std::runtime_error("Hi"); });
+    auto future = clusteredRun(std::vector<int>{1, 2, 3}, [](int) -> int { throw std::runtime_error("Hi"); });
     future.wait(10000);
     ASSERT_TRUE(future.isCompleted());
     EXPECT_FALSE(future.isSucceeded());
     EXPECT_TRUE(future.isFailed());
-    EXPECT_EQ("Exception caught: Hi", future.failureReason().toString());
+    EXPECT_EQ("Exception: Hi", future.failureReason());
 }
 
 TEST_F(TasksExceptionsTest, clusteredRunExceptionNonStd)
 {
-    auto future = clusteredRun(QVector<int>{1, 2, 3}, [](int) -> int { throw 42; });
+    auto future = clusteredRun(std::vector<int>{1, 2, 3}, [](int) -> int { throw 42; });
     future.wait(10000);
     ASSERT_TRUE(future.isCompleted());
     EXPECT_FALSE(future.isSucceeded());
     EXPECT_TRUE(future.isFailed());
-    EXPECT_EQ("Exception caught", future.failureReason().toString());
+    EXPECT_EQ("Exception", future.failureReason());
 }
 
 TEST_F(TasksExceptionsTest, clusteredRunExceptionInLastCluster)
 {
-    auto future = clusteredRun(QVector<int>{1, 2, 3, 4, 5, 6},
+    auto future = clusteredRun(std::vector<int>{1, 2, 3, 4, 5, 6},
                                [](int x) -> int {
                                    if (x == 5)
                                        throw std::runtime_error("Hi");
                                    else if (x == 1 || x == 3)
-                                       QThread::msleep(500);
+                                       std::this_thread::sleep_for(500ms);
                                    return x;
                                },
                                2, TaskType::Custom);
@@ -91,17 +93,17 @@ TEST_F(TasksExceptionsTest, clusteredRunExceptionInLastCluster)
     ASSERT_TRUE(future.isCompleted());
     EXPECT_FALSE(future.isSucceeded());
     EXPECT_TRUE(future.isFailed());
-    EXPECT_EQ("Exception caught: Hi", future.failureReason().toString());
+    EXPECT_EQ("Exception: Hi", future.failureReason());
 }
 
 TEST_F(TasksExceptionsTest, clusteredRunExceptionNonStdInLastCluster)
 {
-    auto future = clusteredRun(QVector<int>{1, 2, 3, 4, 5, 6},
+    auto future = clusteredRun(std::vector<int>{1, 2, 3, 4, 5, 6},
                                [](int x) -> int {
                                    if (x == 5)
                                        throw 42;
                                    else if (x == 1 || x == 3)
-                                       QThread::msleep(500);
+                                       std::this_thread::sleep_for(500ms);
                                    return x;
                                },
                                2, TaskType::Custom);
@@ -109,5 +111,5 @@ TEST_F(TasksExceptionsTest, clusteredRunExceptionNonStdInLastCluster)
     ASSERT_TRUE(future.isCompleted());
     EXPECT_FALSE(future.isSucceeded());
     EXPECT_TRUE(future.isFailed());
-    EXPECT_EQ("Exception caught", future.failureReason().toString());
+    EXPECT_EQ("Exception", future.failureReason());
 }

@@ -22,32 +22,55 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef ASYNQRO_ZIPFUTURES_H
-#define ASYNQRO_ZIPFUTURES_H
+#ifndef ASYNQRO_SIMPLEFUTURE_H
+#define ASYNQRO_SIMPLEFUTURE_H
 
-#include <tuple>
+#include "asynqro/asynqro"
 
-namespace asynqro::detail {
+namespace asynqro {
+namespace failure {
+template <>
+inline std::any failureFromString<std::any>(const std::string &s)
+{
+    return std::any(s);
+}
+} // namespace failure
+
+namespace simple {
 template <typename T>
-struct AsTuple
+using Future = ::asynqro::Future<T, std::any>;
+template <typename T>
+using CancelableFuture = ::asynqro::CancelableFuture<T, std::any>;
+template <typename T>
+using Promise = ::asynqro::Promise<T, std::any>;
+using Runner = ::asynqro::tasks::TaskRunner<std::any>;
+
+template <typename T>
+auto successful(T &&value) noexcept
 {
-    using type = std::tuple<T>;
-    static constexpr type make(const T &v) { return std::make_tuple(v); }
-};
+    return Future<std::decay_t<T>>::successful(std::forward<T>(value));
+}
 
-template <typename... T>
-struct AsTuple<std::tuple<T...>>
+template <typename T>
+auto successful(const T &value) noexcept
 {
-    using type = std::tuple<T...>;
-    static constexpr type make(const std::tuple<T...> &v) { return v; }
-};
+    return Future<T>::successful(value);
+}
 
-template <typename... T>
-using AsTuple_T = typename AsTuple<T...>::type;
+// This overload copies container to make sure that it will be reachable in future
+template <typename T, template <typename...> typename F, template <typename...> typename Container, typename... Fs>
+Future<Container<T>> sequence(const Container<F<T, std::any>, Fs...> &container) noexcept
+{
+    Container<F<T, std::any>> copy = container;
+    return Future<T>::sequence(std::move(copy));
+}
 
-template <typename... Futures>
-using FutureValuesProduct_T = decltype(std::tuple_cat(AsTuple_T<typename Futures::Value>()...));
+template <typename T, template <typename...> typename F, template <typename...> typename Container, typename... Fs>
+Future<Container<T>> sequence(Container<F<T, std::any>, Fs...> &&container) noexcept
+{
+    return Future<T>::sequence(std::move(container));
+}
+} // namespace simple
+} // namespace asynqro
 
-} // namespace asynqro::detail
-
-#endif // ASYNQRO_ZIPFUTURES_H
+#endif // ASYNQRO_SIMPLEFUTURE_H

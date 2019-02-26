@@ -5,10 +5,10 @@ class FutureZipTest : public FutureBaseTest
 
 TEST_F(FutureZipTest, zip)
 {
-    Promise<int> firstPromise;
-    Promise<double> secondPromise;
-    Promise<QString> thirdPromise;
-    Future<std::tuple<int, double, QString>> future =
+    TestPromise<int> firstPromise;
+    TestPromise<double> secondPromise;
+    TestPromise<std::string> thirdPromise;
+    TestFuture<std::tuple<int, double, std::string>> future =
         createFuture(firstPromise).zip(createFuture(secondPromise), createFuture(thirdPromise));
     EXPECT_FALSE(future.isSucceeded());
     secondPromise.success(5.0);
@@ -27,9 +27,9 @@ TEST_F(FutureZipTest, zip)
 
 TEST_F(FutureZipTest, zipLeftTuple)
 {
-    Promise<std::tuple<int, double>> firstPromise;
-    Promise<QString> secondPromise;
-    Future<std::tuple<int, double, QString>> future = createFuture(firstPromise).zip(createFuture(secondPromise));
+    TestPromise<std::tuple<int, double>> firstPromise;
+    TestPromise<std::string> secondPromise;
+    TestFuture<std::tuple<int, double, std::string>> future = createFuture(firstPromise).zip(createFuture(secondPromise));
     EXPECT_FALSE(future.isSucceeded());
     secondPromise.success("Done");
     EXPECT_FALSE(future.isSucceeded());
@@ -45,9 +45,9 @@ TEST_F(FutureZipTest, zipLeftTuple)
 
 TEST_F(FutureZipTest, zipRightTuple)
 {
-    Promise<std::tuple<int, double>> firstPromise;
-    Promise<QString> secondPromise;
-    Future<std::tuple<QString, int, double>> future = createFuture(secondPromise).zip(createFuture(firstPromise));
+    TestPromise<std::tuple<int, double>> firstPromise;
+    TestPromise<std::string> secondPromise;
+    TestFuture<std::tuple<std::string, int, double>> future = createFuture(secondPromise).zip(createFuture(firstPromise));
     EXPECT_FALSE(future.isSucceeded());
     secondPromise.success("Done");
     EXPECT_FALSE(future.isSucceeded());
@@ -63,9 +63,10 @@ TEST_F(FutureZipTest, zipRightTuple)
 
 TEST_F(FutureZipTest, zipBothTuples)
 {
-    Promise<std::tuple<int, double>> firstPromise;
-    Promise<std::tuple<QString, int>> secondPromise;
-    Future<std::tuple<int, double, QString, int>> future = createFuture(firstPromise).zip(createFuture(secondPromise));
+    TestPromise<std::tuple<int, double>> firstPromise;
+    TestPromise<std::tuple<std::string, int>> secondPromise;
+    TestFuture<std::tuple<int, double, std::string, int>> future =
+        createFuture(firstPromise).zip(createFuture(secondPromise));
     EXPECT_FALSE(future.isSucceeded());
     secondPromise.success(std::make_tuple("Done", 1024));
     EXPECT_FALSE(future.isSucceeded());
@@ -82,9 +83,9 @@ TEST_F(FutureZipTest, zipBothTuples)
 
 TEST_F(FutureZipTest, zipLeftFails)
 {
-    Promise<int> firstPromise;
-    Promise<double> secondPromise;
-    Future<std::tuple<int, double>> future = createFuture(firstPromise).zip(createFuture(secondPromise));
+    TestPromise<int> firstPromise;
+    TestPromise<double> secondPromise;
+    TestFuture<std::tuple<int, double>> future = createFuture(firstPromise).zip(createFuture(secondPromise));
     EXPECT_FALSE(future.isSucceeded());
     secondPromise.success(5.0);
     EXPECT_FALSE(future.isSucceeded());
@@ -93,14 +94,14 @@ TEST_F(FutureZipTest, zipLeftFails)
     ASSERT_TRUE(future.isCompleted());
     EXPECT_FALSE(future.isSucceeded());
     EXPECT_TRUE(future.isFailed());
-    EXPECT_EQ("failed", future.failureReason().toString());
+    EXPECT_EQ("failed", future.failureReason());
 }
 
 TEST_F(FutureZipTest, zipRightFails)
 {
-    Promise<int> firstPromise;
-    Promise<double> secondPromise;
-    Future<std::tuple<int, double>> future = createFuture(firstPromise).zip(createFuture(secondPromise));
+    TestPromise<int> firstPromise;
+    TestPromise<double> secondPromise;
+    TestFuture<std::tuple<int, double>> future = createFuture(firstPromise).zip(createFuture(secondPromise));
     EXPECT_FALSE(future.isSucceeded());
     firstPromise.success(42);
     EXPECT_FALSE(future.isSucceeded());
@@ -109,13 +110,13 @@ TEST_F(FutureZipTest, zipRightFails)
     ASSERT_TRUE(future.isCompleted());
     EXPECT_FALSE(future.isSucceeded());
     EXPECT_TRUE(future.isFailed());
-    EXPECT_EQ("failed", future.failureReason().toString());
+    EXPECT_EQ("failed", future.failureReason());
 }
 
 TEST_F(FutureZipTest, zipValue)
 {
-    Promise<double> firstPromise;
-    Future<std::tuple<double, int>> future = createFuture(firstPromise).zipValue(42);
+    TestPromise<double> firstPromise;
+    TestFuture<std::tuple<double, int>> future = createFuture(firstPromise).zipValue(42);
     EXPECT_FALSE(future.isSucceeded());
     firstPromise.success(5.0);
 
@@ -128,8 +129,8 @@ TEST_F(FutureZipTest, zipValue)
 
 TEST_F(FutureZipTest, zipValueLeftTuple)
 {
-    Promise<std::tuple<int, double>> firstPromise;
-    Future<std::tuple<int, double, QString>> future = createFuture(firstPromise).zipValue(QStringLiteral("Done"));
+    TestPromise<std::tuple<int, double>> firstPromise;
+    TestFuture<std::tuple<int, double, std::string>> future = createFuture(firstPromise).zipValue(std::string("Done"));
     EXPECT_FALSE(future.isSucceeded());
     firstPromise.success(std::make_tuple(42, 5.0));
 

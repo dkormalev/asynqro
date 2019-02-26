@@ -25,24 +25,25 @@
 #ifndef ASYNQRO_SPINLOCK_H
 #define ASYNQRO_SPINLOCK_H
 
-#include <QThread>
-
 #include <atomic>
+#include <thread>
 
 namespace asynqro::detail {
 class SpinLock
 {
 public:
-    SpinLock() noexcept {}
+    SpinLock() noexcept = default;
     SpinLock(const SpinLock &) = delete;
     SpinLock(SpinLock &&) = delete;
     SpinLock &operator=(const SpinLock &) = delete;
     SpinLock &operator=(SpinLock &&) = delete;
+    ~SpinLock() = default;
 
     inline void lock()
     {
+        using namespace std::chrono_literals;
         while (!tryLock())
-            QThread::msleep(1);
+            std::this_thread::sleep_for(1ms);
     }
 
     inline bool tryLock()
@@ -63,17 +64,33 @@ private:
 class SpinLockHolder
 {
 public:
-    SpinLockHolder(SpinLock *lock) noexcept : m_lock(lock)
+    explicit SpinLockHolder(SpinLock *lock) noexcept : m_lock(lock)
     {
         m_lock = lock;
         if (m_lock)
             m_lock->lock();
+    }
+    explicit SpinLockHolder(SpinLock *lock, const std::atomic_bool &abandonLock) noexcept : m_lock(lock)
+    {
+        using namespace std::chrono_literals;
+        m_lock = lock;
+        if (m_lock) {
+            while (!m_lock->tryLock()) {
+                if (abandonLock.load(std::memory_order_relaxed)) {
+                    m_lock = nullptr;
+                    return;
+                }
+                std::this_thread::sleep_for(1ms);
+            }
+        }
     }
     SpinLockHolder(const SpinLockHolder &) = delete;
     SpinLockHolder(SpinLockHolder &&) = delete;
     SpinLockHolder &operator=(const SpinLockHolder &) = delete;
     SpinLockHolder &operator=(SpinLockHolder &&) = delete;
     ~SpinLockHolder() { unlock(); }
+
+    inline bool locked() { return m_lock; }
 
     inline void unlock()
     {

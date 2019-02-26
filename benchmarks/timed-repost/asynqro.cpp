@@ -1,10 +1,9 @@
 #include "asynqro/asynqro"
 
-#include <QVector>
-
 #include <atomic>
 #include <chrono>
 #include <iostream>
+#include <vector>
 
 #ifndef CONCURRENCY
 #    define CONCURRENCY 4
@@ -46,9 +45,9 @@ struct RepostJob
     mutable volatile int counter;
     long long int begin_count;
     mutable long long int offset;
-    asynqro::Promise<bool> waiter;
+    asynqro::Promise<bool, std::string> waiter;
 
-    RepostJob(const asynqro::Promise<bool> &waiter, int id) : id(id), counter(0), waiter(waiter)
+    RepostJob(const asynqro::Promise<bool, std::string> &waiter, int id) : id(id), counter(0), waiter(waiter)
     {
         begin_count = std::chrono::high_resolution_clock::now().time_since_epoch().count();
         offset = 0;
@@ -95,21 +94,21 @@ int main()
         asynqro::tasks::TasksDispatcher::instance()->setIdleLoopsAmount(IDLE_AMOUNT);
         std::cout << "***asynqro***" << std::endl;
 
-        QVector<asynqro::Future<bool>> waiters;
+        std::vector<asynqro::Future<bool, std::string>> waiters;
         waiters.reserve(CONCURRENCY);
         long long totalBegin = std::chrono::high_resolution_clock::now().time_since_epoch().count();
         for (int id = 0; id < CONCURRENCY; ++id) {
-            asynqro::Promise<bool> p;
+            asynqro::Promise<bool, std::string> p;
 #if defined(WITH_FUTURES) && WITH_FUTURES
             asynqro::tasks::run
 #else
             asynqro::tasks::runAndForget
 #endif
                 (RepostJob(p, id), TASK_TYPE, TASK_TAG);
-            waiters << p.future();
+            waiters.push_back(p.future());
         }
 
-        asynqro::Future<>::sequence(waiters).wait();
+        asynqro::Future<bool, std::string>::sequence(std::move(waiters)).wait();
         long long totalEnd = std::chrono::high_resolution_clock::now().time_since_epoch().count();
         long long total = (totalEnd - totalBegin);
         double adjustedUseful = (double)USEFUL / (double)CONCURRENCY;

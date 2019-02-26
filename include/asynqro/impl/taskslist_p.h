@@ -27,8 +27,7 @@
 
 #include "asynqro/impl/tasksdispatcher.h"
 
-#include <QtGlobal>
-
+#include <algorithm>
 #include <list>
 #include <map>
 
@@ -42,9 +41,10 @@ struct TaskInfo
         return x;
     }
     TaskInfo() noexcept {}
-    TaskInfo(std::function<void()> &&task, TaskType type, qint32 tag, TaskPriority priority)
+    TaskInfo(std::function<void()> &&task, TaskType type, int32_t tag, TaskPriority priority)
         : task(std::move(task)), tag(tag), type(type), priority(priority)
     {}
+    ~TaskInfo() = default;
     TaskInfo(const TaskInfo &) = delete;
     TaskInfo &operator=(const TaskInfo &) = delete;
     //TODO: C++20: mark as noexcept
@@ -52,16 +52,16 @@ struct TaskInfo
     TaskInfo &operator=(TaskInfo &&) = default;
     bool isValid() const noexcept { return static_cast<bool>(task); }
     std::function<void()> task;
-    qint32 tag = 0;
+    int32_t tag = 0;
     TaskType type = TaskType::Intensive;
     TaskPriority priority = TaskPriority::Regular;
 };
 
-constexpr quint64 packPoolInfo(TaskType type, qint32 tag)
+constexpr uint64_t packPoolInfo(TaskType type, int32_t tag)
 {
-    return (static_cast<quint64>(type) << 32) | static_cast<quint64>(qMax(0, tag));
+    return (static_cast<uint64_t>(type) << 32u) | static_cast<uint64_t>(std::max(0, tag));
 }
-quint64 packPoolInfo(const TaskInfo &taskInfo)
+uint64_t packPoolInfo(const TaskInfo &taskInfo)
 {
     return packPoolInfo(taskInfo.type, taskInfo.tag);
 }
@@ -69,7 +69,7 @@ quint64 packPoolInfo(const TaskInfo &taskInfo)
 class TasksList
 {
     using List = std::list<TaskInfo>;
-    using Map = std::map<quint16, List>;
+    using Map = std::map<uint_fast8_t, List>;
 
 public:
     struct iterator
@@ -108,7 +108,7 @@ public:
         List::iterator listIt;
     };
 
-    void insert(std::function<void()> &&task, TaskType type, qint32 tag, TaskPriority priority)
+    void insert(std::function<void()> &&task, TaskType type, int32_t tag, TaskPriority priority)
     {
         m_lists[priority].emplace_back(std::move(task), type, tag, priority);
         ++m_size;

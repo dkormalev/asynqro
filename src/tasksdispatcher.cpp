@@ -27,78 +27,90 @@
 #include "asynqro/impl/taskslist_p.h"
 #include "asynqro/tasks.h"
 
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <map>
 #include <mutex>
 #include <optional>
 #include <set>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
-static const qint32 INTENSIVE_CAPACITY = qMax(QThread::idealThreadCount(), 1);
-static const qint32 DEFAULT_CUSTOM_CAPACITY = INTENSIVE_CAPACITY;
-static const qint32 DEFAULT_TOTAL_CAPACITY = qMax(64, INTENSIVE_CAPACITY * 8);
-static const qint32 DEFAULT_BOUND_CAPACITY = DEFAULT_TOTAL_CAPACITY / 4;
+static const int32_t INTENSIVE_CAPACITY = static_cast<int32_t>(std::max(std::thread::hardware_concurrency(), 1u));
+static const int32_t DEFAULT_CUSTOM_CAPACITY = INTENSIVE_CAPACITY;
+static const int32_t DEFAULT_TOTAL_CAPACITY = std::max(64, INTENSIVE_CAPACITY * 8);
+static const int32_t DEFAULT_BOUND_CAPACITY = DEFAULT_TOTAL_CAPACITY / 4;
 
 namespace asynqro::tasks {
-static constexpr qint64 INTENSIVE_SUBPOOL = packPoolInfo(TaskType::Intensive, 0);
+static constexpr uint64_t INTENSIVE_SUBPOOL = packPoolInfo(TaskType::Intensive, 0);
 
 class Worker;
 class TasksDispatcherPrivate
 {
-    Q_DECLARE_PUBLIC(TasksDispatcher)
+    friend class TasksDispatcher;
+
 public:
-    void taskFinished(qint32 workerId, const TaskInfo &task, bool askingForNext);
+    void taskFinished(int32_t workerId, const TaskInfo &task, bool askingForNext);
 
 private:
-    void schedule(qint32 workerId = -1);
+    void schedule(int32_t workerId = -1);
     // All private methods below should always be called under mainLock
     bool createNewWorkerIfPossible();
-    bool scheduleSingleTask(const TaskInfo &task, qint32 workerId);
+    bool scheduleSingleTask(const TaskInfo &task, int32_t workerId);
 
-    qint32 customTagCapacity(qint32 tag) const;
+    int32_t customTagCapacity(int32_t tag) const;
 
-    std::unordered_map<quint64, qint32> subPoolsUsage; // pool info -> amount
-    std::unordered_map<qint32, qint32> customTagCapacities; // tag -> capacity
+    std::unordered_map<uint64_t, int32_t> subPoolsUsage; // pool info -> amount
+    std::unordered_map<int32_t, int32_t> customTagCapacities; // tag -> capacity
 
     TasksList tasksQueue; // All except bound ones to known workers
 
     std::vector<Worker *> allWorkers;
-    std::unordered_set<qint32> availableWorkers; // Indices in allWorkers vector, except bound
+    std::unordered_set<int32_t> availableWorkers; // Indices in allWorkers vector, except bound
 
-    std::unordered_map<qint32, qint32> tagToWorkerBindings; // tag -> index in allWorkers vector
-    std::unordered_map<qint32, int> workersBindingsCount; // Index in allWorkers vector -> amount of tags bound
+    std::unordered_map<int32_t, int32_t> tagToWorkerBindings; // tag -> index in allWorkers vector
+    std::unordered_map<int32_t, int> workersBindingsCount; // Index in allWorkers vector -> amount of tags bound
 
-    TasksDispatcher *q_ptr;
+    TasksDispatcher *q_ptr = nullptr;
 
-    qint32 capacity = DEFAULT_TOTAL_CAPACITY;
-    qint32 boundCapacity = DEFAULT_BOUND_CAPACITY;
+    int32_t capacity = DEFAULT_TOTAL_CAPACITY;
+    int32_t boundCapacity = DEFAULT_BOUND_CAPACITY;
     detail::SpinLock mainLock;
+    std::atomic_bool poisoningStarted{false};
 
 public:
     std::atomic_int_fast32_t instantUsage{0};
     std::atomic_int_fast32_t idleLoopsAmount{1024};
 };
 
-class Worker : public QThread
+class Worker
 {
-    Q_OBJECT
-
 public:
-    Worker(qint32 id);
+    explicit Worker(int32_t id);
+    Worker(const Worker &) = delete;
+    Worker(Worker &&) noexcept = delete;
+    Worker &operator=(const Worker &) = delete;
+    Worker &operator=(Worker &&) noexcept = delete;
+    ~Worker();
+
+    void start();
+
     void addTask(TaskInfo &&task);
     void poisonPill();
 
 protected:
-    void run() override;
+    void run();
 
 private:
     std::mutex waitingLock;
     std::condition_variable waiter;
     TasksList workerTasks;
-    qint32 id = 0;
-    qint32 idleLoopsAmount = 0;
+    int32_t id = 0;
+    int_fast32_t idleLoopsAmount = 0;
+    std::thread myself;
 
     std::atomic_bool poisoned{false};
     detail::SpinLock tasksLock;
@@ -113,18 +125,10 @@ TasksDispatcher::TasksDispatcher() : d_ptr(new TasksDispatcherPrivate)
 
 TasksDispatcher::~TasksDispatcher()
 {
+    d_ptr->poisoningStarted.store(true, std::memory_order_relaxed);
     detail::SpinLockHolder lock(&d_ptr->mainLock);
     for (auto worker : d_ptr->allWorkers)
-        worker->poisonPill();
-    for (auto worker : d_ptr->allWorkers)
-        worker->wait(100);
-    for (auto worker : d_ptr->allWorkers) {
-        if (worker->isRunning()) {
-            worker->terminate();
-            worker->wait(100);
-        }
         delete worker;
-    }
     d_ptr->allWorkers.clear();
 }
 
@@ -134,86 +138,98 @@ TasksDispatcher *TasksDispatcher::instance()
     return &tasksDispatcher;
 }
 
-qint32 TasksDispatcher::capacity() const
+int32_t TasksDispatcher::capacity() const
 {
     return d_ptr->capacity;
 }
 
-qint32 TasksDispatcher::subPoolCapacity(TaskType type, qint32 tag) const
+int32_t TasksDispatcher::subPoolCapacity(TaskType type, int32_t tag) const
 {
     if (type == TaskType::ThreadBound)
         return d_ptr->boundCapacity;
     if (type == TaskType::Intensive)
         return INTENSIVE_CAPACITY;
-    else if (tag <= 0)
+    if (tag <= 0)
         return capacity();
-    detail::SpinLockHolder lock(&d_ptr->mainLock);
+    detail::SpinLockHolder lock(&d_ptr->mainLock, d_ptr->poisoningStarted);
     return d_ptr->customTagCapacity(tag);
 }
 
-void TasksDispatcher::setCapacity(qint32 capacity)
+void TasksDispatcher::setCapacity(int32_t capacity)
 {
-    detail::SpinLockHolder lock(&d_ptr->mainLock);
-    capacity = qMax(INTENSIVE_CAPACITY, capacity);
-    capacity = qMax(static_cast<qint32>(d_ptr->allWorkers.size()), capacity);
+    detail::SpinLockHolder lock(&d_ptr->mainLock, d_ptr->poisoningStarted);
+    if (!lock.locked())
+        return;
+    capacity = std::max(INTENSIVE_CAPACITY, capacity);
+    capacity = std::max(static_cast<int32_t>(d_ptr->allWorkers.size()), capacity);
     d_ptr->capacity = capacity;
     d_ptr->allWorkers.reserve(static_cast<size_t>(capacity));
     d_ptr->customTagCapacities[0] = capacity;
-    d_ptr->boundCapacity = qMin(d_ptr->boundCapacity, capacity);
+    d_ptr->boundCapacity = std::min(d_ptr->boundCapacity, capacity);
 }
 
-void TasksDispatcher::addCustomTag(qint32 tag, qint32 capacity)
+void TasksDispatcher::addCustomTag(int32_t tag, int32_t capacity)
 {
     if (tag <= 0)
         return;
-    capacity = qBound(1, capacity, d_ptr->capacity);
-    detail::SpinLockHolder lock(&d_ptr->mainLock);
+    capacity = std::clamp(capacity, 1, d_ptr->capacity);
+    detail::SpinLockHolder lock(&d_ptr->mainLock, d_ptr->poisoningStarted);
+    if (!lock.locked())
+        return;
     d_ptr->customTagCapacities[tag] = capacity;
 }
 
-void TasksDispatcher::setBoundCapacity(qint32 capacity)
+void TasksDispatcher::setBoundCapacity(int32_t capacity)
 {
-    detail::SpinLockHolder lock(&d_ptr->mainLock);
-    d_ptr->boundCapacity = qMax(static_cast<qint32>(d_ptr->workersBindingsCount.size()), capacity);
+    detail::SpinLockHolder lock(&d_ptr->mainLock, d_ptr->poisoningStarted);
+    if (!lock.locked())
+        return;
+    d_ptr->boundCapacity = std::max(static_cast<int32_t>(d_ptr->workersBindingsCount.size()), capacity);
 }
 
-qint32 TasksDispatcher::idleLoopsAmount() const
+int_fast32_t TasksDispatcher::idleLoopsAmount() const
 {
     return d_ptr->idleLoopsAmount.load(std::memory_order_relaxed);
 }
 
-void TasksDispatcher::setIdleLoopsAmount(qint32 amount)
+void TasksDispatcher::setIdleLoopsAmount(int_fast32_t amount)
 {
     d_ptr->idleLoopsAmount.store(amount, std::memory_order_relaxed);
 }
 
-qint32 TasksDispatcher::instantUsage() const
+int_fast32_t TasksDispatcher::instantUsage() const
 {
     return d_ptr->instantUsage.load(std::memory_order_relaxed);
 }
 
 void TasksDispatcher::preHeatPool(double amount)
 {
-    qint32 desiredCapacity = qBound(1, static_cast<qint32>(qRound(amount * capacity())), capacity());
-    detail::SpinLockHolder lock(&d_ptr->mainLock);
-    while (desiredCapacity > static_cast<qint32>(d_ptr->allWorkers.size()))
+    int32_t desiredCapacity = std::clamp(static_cast<int32_t>(std::round(amount * capacity())), 1, capacity());
+    detail::SpinLockHolder lock(&d_ptr->mainLock, d_ptr->poisoningStarted);
+    if (!lock.locked())
+        return;
+    while (desiredCapacity > static_cast<int32_t>(d_ptr->allWorkers.size()))
         d_ptr->createNewWorkerIfPossible();
 }
 
 void TasksDispatcher::preHeatIntensivePool()
 {
-    detail::SpinLockHolder lock(&d_ptr->mainLock);
-    while (INTENSIVE_CAPACITY > static_cast<qint32>(d_ptr->allWorkers.size()))
+    detail::SpinLockHolder lock(&d_ptr->mainLock, d_ptr->poisoningStarted);
+    if (!lock.locked())
+        return;
+    while (INTENSIVE_CAPACITY > static_cast<int32_t>(d_ptr->allWorkers.size()))
         d_ptr->createNewWorkerIfPossible();
 }
 
-void TasksDispatcher::insertTaskInfo(std::function<void()> &&wrappedTask, TaskType type, qint32 tag,
+void TasksDispatcher::insertTaskInfo(std::function<void()> &&wrappedTask, TaskType type, int32_t tag,
                                      TaskPriority priority) noexcept
 {
     // We consider all intensive tasks as under single tag
-    tag = type == TaskType::Intensive ? 0 : qMax(0, tag);
+    tag = type == TaskType::Intensive ? 0 : std::max(0, tag);
     TaskInfo taskInfo = TaskInfo(std::move(wrappedTask), type, tag, priority);
-    detail::SpinLockHolder lock(&d_ptr->mainLock);
+    detail::SpinLockHolder lock(&d_ptr->mainLock, d_ptr->poisoningStarted);
+    if (!lock.locked())
+        return;
     // We keep all already known bindings in separate lists
     if (type == TaskType::ThreadBound) {
         auto boundWorker = d_ptr->tagToWorkerBindings.find(tag);
@@ -222,7 +238,7 @@ void TasksDispatcher::insertTaskInfo(std::function<void()> &&wrappedTask, TaskTy
             return;
         }
     } else if (!d_ptr->availableWorkers.empty() && d_ptr->tasksQueue.empty()) {
-        qint32 workerId = *d_ptr->availableWorkers.begin();
+        int32_t workerId = *d_ptr->availableWorkers.begin();
         if (d_ptr->scheduleSingleTask(taskInfo, workerId)) {
             lock.unlock();
             d_ptr->allWorkers[static_cast<size_t>(workerId)]->addTask(std::move(taskInfo));
@@ -231,7 +247,7 @@ void TasksDispatcher::insertTaskInfo(std::function<void()> &&wrappedTask, TaskTy
     }
 
     d_ptr->tasksQueue.insert(std::move(taskInfo));
-    if (!d_ptr->availableWorkers.empty() || static_cast<qint32>(d_ptr->allWorkers.size()) < capacity()) {
+    if (!d_ptr->availableWorkers.empty() || static_cast<int32_t>(d_ptr->allWorkers.size()) < capacity()) {
         if (type == TaskType::Intensive && d_ptr->subPoolsUsage[INTENSIVE_SUBPOOL] >= INTENSIVE_CAPACITY)
             return;
 
@@ -240,11 +256,13 @@ void TasksDispatcher::insertTaskInfo(std::function<void()> &&wrappedTask, TaskTy
     }
 }
 
-void TasksDispatcherPrivate::taskFinished(qint32 workerId, const TaskInfo &task, bool askingForNext)
+void TasksDispatcherPrivate::taskFinished(int32_t workerId, const TaskInfo &task, bool askingForNext)
 {
-    detail::SpinLockHolder lock(&mainLock);
+    detail::SpinLockHolder lock(&mainLock, poisoningStarted);
+    if (!lock.locked())
+        return;
     if (task.type != TaskType::ThreadBound) {
-        quint64 poolInfo = packPoolInfo(task);
+        uint64_t poolInfo = packPoolInfo(task);
         if (--subPoolsUsage[poolInfo] <= 0) {
             if (task.tag)
                 subPoolsUsage.erase(poolInfo);
@@ -259,9 +277,11 @@ void TasksDispatcherPrivate::taskFinished(qint32 workerId, const TaskInfo &task,
     }
 }
 
-void TasksDispatcherPrivate::schedule(qint32 workerId)
+void TasksDispatcherPrivate::schedule(int32_t workerId)
 {
-    detail::SpinLockHolder lock(&mainLock);
+    detail::SpinLockHolder lock(&mainLock, poisoningStarted);
+    if (!lock.locked())
+        return;
     if (tasksQueue.empty())
         return;
     if (availableWorkers.empty() && !createNewWorkerIfPossible())
@@ -269,7 +289,7 @@ void TasksDispatcherPrivate::schedule(qint32 workerId)
 
     workerId = workerId < 0 || !availableWorkers.count(workerId) ? *availableWorkers.cbegin() : workerId;
 
-    qint32 boundWorkerId = -1;
+    int32_t boundWorkerId = -1;
     bool newBoundTask = false;
     for (auto it = tasksQueue.begin(); it != tasksQueue.end();) {
         TaskInfo &task = *it;
@@ -280,19 +300,19 @@ void TasksDispatcherPrivate::schedule(qint32 workerId)
             if (tagToWorkerBindings.count(task.tag)) {
                 newBoundTask = false;
                 boundWorkerId = tagToWorkerBindings[task.tag];
-            } else if (static_cast<qint32>(workersBindingsCount.size()) < boundCapacity) {
+            } else if (static_cast<int32_t>(workersBindingsCount.size()) < boundCapacity) {
                 newBoundTask = true;
                 if (workersBindingsCount.count(workerId)) {
                     boundWorkerId = traverse::findIf(availableWorkers,
-                                                     [this](qint32 x) { return !workersBindingsCount.count(x); }, -1);
+                                                     [this](int32_t x) { return !workersBindingsCount.count(x); }, -1);
                     if (boundWorkerId < 0 && createNewWorkerIfPossible())
-                        boundWorkerId = static_cast<qint32>(allWorkers.size()) - 1;
+                        boundWorkerId = static_cast<int32_t>(allWorkers.size()) - 1;
                 } else {
                     boundWorkerId = workerId;
                 }
             } else {
                 newBoundTask = true;
-                auto minimizer = [this](qint32 acc, qint32 x) {
+                auto minimizer = [this](int32_t acc, int32_t x) {
                     auto xIt = workersBindingsCount.find(x);
                     auto accIt = workersBindingsCount.find(acc);
                     if (workersBindingsCount.cend() == xIt)
@@ -328,7 +348,7 @@ void TasksDispatcherPrivate::schedule(qint32 workerId)
 
 bool TasksDispatcherPrivate::createNewWorkerIfPossible()
 {
-    qint32 newWorkerId = static_cast<qint32>(allWorkers.size());
+    int32_t newWorkerId = static_cast<int32_t>(allWorkers.size());
     if (newWorkerId < capacity) {
         availableWorkers.insert(newWorkerId);
         auto worker = new Worker(newWorkerId);
@@ -339,12 +359,12 @@ bool TasksDispatcherPrivate::createNewWorkerIfPossible()
     return false;
 }
 
-bool TasksDispatcherPrivate::scheduleSingleTask(const TaskInfo &task, qint32 workerId)
+bool TasksDispatcherPrivate::scheduleSingleTask(const TaskInfo &task, int32_t workerId)
 {
     if (workerId < 0 || task.type == TaskType::ThreadBound)
         return false;
 
-    qint32 capacityLeft = capacity;
+    int32_t capacityLeft = capacity;
 
     switch (task.type) {
     case TaskType::Intensive:
@@ -356,7 +376,7 @@ bool TasksDispatcherPrivate::scheduleSingleTask(const TaskInfo &task, qint32 wor
     default:
         break;
     }
-    quint64 poolInfo = packPoolInfo(task);
+    uint64_t poolInfo = packPoolInfo(task);
     auto usageIt = subPoolsUsage.find(poolInfo);
     capacityLeft -= subPoolsUsage.cend() == usageIt ? 0 : usageIt->second;
     if (capacityLeft <= 0)
@@ -366,15 +386,32 @@ bool TasksDispatcherPrivate::scheduleSingleTask(const TaskInfo &task, qint32 wor
     return true;
 }
 
-qint32 TasksDispatcherPrivate::customTagCapacity(qint32 tag) const
+int32_t TasksDispatcherPrivate::customTagCapacity(int32_t tag) const
 {
     auto capacityIt = customTagCapacities.find(tag);
     return customTagCapacities.cend() == capacityIt ? DEFAULT_CUSTOM_CAPACITY : capacityIt->second;
 }
 
-Worker::Worker(qint32 id) : QThread(nullptr), id(id)
+Worker::Worker(int32_t id) : id(id)
 {
     idleLoopsAmount = TasksDispatcher::instance()->d_ptr->idleLoopsAmount.load(std::memory_order_relaxed);
+}
+
+Worker::~Worker()
+{
+    poisonPill();
+    if (myself.joinable()) {
+        try {
+            myself.join();
+        } catch (...) {
+        }
+    }
+}
+
+void Worker::start()
+{
+    std::thread t(&Worker::run, this);
+    std::swap(myself, t);
 }
 
 void Worker::addTask(TaskInfo &&task)
@@ -416,7 +453,7 @@ void Worker::run()
         if (!taskFound) {
             if (taskObserved && ++noTasksTicks < idleLoopsAmount) {
                 tasksLock.unlock();
-                QThread::yieldCurrentThread();
+                std::this_thread::yield();
                 continue;
             }
             std::unique_lock lock(waitingLock);
@@ -439,5 +476,3 @@ void Worker::run()
 }
 
 } // namespace asynqro::tasks
-
-#include "tasksdispatcher.moc"

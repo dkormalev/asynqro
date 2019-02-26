@@ -5,3 +5,5 @@ bin
 *.xlsx
 *.o
 *.so
+.vs/
+CMakeSettings.json

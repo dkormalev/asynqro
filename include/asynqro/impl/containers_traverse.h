@@ -28,8 +28,6 @@
 #include "asynqro/impl/containers_helpers.h"
 #include "asynqro/impl/typetraits.h"
 
-#include <QPair>
-
 #include <type_traits>
 
 namespace asynqro::traverse {
@@ -49,26 +47,26 @@ auto findIf(const C &src, const Func &f, const Result &defaultValue = Result())
     return defaultValue;
 }
 
-template <typename C, typename Func, typename Result = QPair<typename C::key_type, typename C::mapped_type>>
+template <typename C, typename Func, typename Result = std::pair<typename C::key_type, typename C::mapped_type>>
 auto findIf(const C &src, const Func &f, const Result &defaultValue = Result())
     -> decltype(f(detail::containers::begin(src).key(), detail::containers::begin(src).value()), Result())
 {
     auto end = detail::containers::end(src);
     for (auto it = detail::containers::begin(src); it != end; ++it) {
         if (f(it.key(), it.value()))
-            return qMakePair(it.key(), it.value());
+            return std::make_pair(it.key(), it.value());
     }
     return defaultValue;
 }
 
-template <typename C, typename Func, typename Result = QPair<typename C::key_type, typename C::mapped_type>>
+template <typename C, typename Func, typename Result = std::pair<typename C::key_type, typename C::mapped_type>>
 auto findIf(const C &src, const Func &f, const Result &defaultValue = Result())
     -> decltype(f(detail::containers::begin(src)->first, detail::containers::begin(src)->second), Result())
 {
     auto end = detail::containers::end(src);
     for (auto it = detail::containers::begin(src); it != end; ++it) {
         if (f(it->first, it->second))
-            return qMakePair(it->first, it->second);
+            return std::make_pair(it->first, it->second);
     }
     return defaultValue;
 }
@@ -199,7 +197,7 @@ auto map(const C<T> &src, const Func &f)
 {
     if constexpr (std::is_invocable_v<Func, T>) {
         return map(src, f, C<std::invoke_result_t<Func, T>>());
-    } else if constexpr (std::is_invocable_v<Func, long long, T>) {
+    } else if constexpr (std::is_invocable_v<Func, long long, T>) { // NOLINT(readability-else-after-return)
         return map(src, f, C<std::invoke_result_t<Func, long long, T>>());
     } else {
         static_assert(detail::DependentFalse<Func>::value,
@@ -259,7 +257,7 @@ auto flatten(const COuter<CInner<T, Ts...>, Inners...> &src, Result dest)
     for (auto it = detail::containers::begin(src); it != end && estimationsLeft; ++it, --estimationsLeft)
         estimatedSize += it->size();
     if (!estimationsLeft)
-        estimatedSize = static_cast<double>(estimatedSize) / 100.0 * src.size();
+        estimatedSize = static_cast<long long>(static_cast<double>(estimatedSize) / 100.0 * src.size());
     detail::containers::reserve(dest, estimatedSize + dest.size());
     for (auto it = detail::containers::begin(src); it != end; ++it) {
         auto innerEnd = detail::containers::end(*it);

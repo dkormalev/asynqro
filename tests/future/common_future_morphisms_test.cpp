@@ -1,13 +1,23 @@
 #include "futurebasetest.h"
 
+namespace asynqro {
+namespace failure {
+template <>
+inline int failureFromString<int>(const std::string &s)
+{
+    return 42;
+}
+} // namespace failure
+} // namespace asynqro
+
 class FutureMorphismsTest : public FutureBaseTest
 {};
 
 TEST_F(FutureMorphismsTest, map)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto future = createFuture(promise);
-    Future<int> mappedFuture = future.map([](int x) { return x * 2; });
+    TestFuture<int> mappedFuture = future.map([](int x) { return x * 2; });
     EXPECT_FALSE(mappedFuture.isCompleted());
     EXPECT_NE(future, mappedFuture);
     promise.success(42);
@@ -19,9 +29,9 @@ TEST_F(FutureMorphismsTest, map)
 }
 TEST_F(FutureMorphismsTest, differentTypeMap)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto future = createFuture(promise);
-    Future<double> mappedFuture = future.map([](int x) -> double { return x / 2.0; });
+    TestFuture<double> mappedFuture = future.map([](int x) -> double { return x / 2.0; });
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.success(42);
     EXPECT_EQ(42, future.result());
@@ -31,12 +41,118 @@ TEST_F(FutureMorphismsTest, differentTypeMap)
     EXPECT_DOUBLE_EQ(21.0, mappedFuture.result());
 }
 
+TEST_F(FutureMorphismsTest, mapFailure)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    TestFuture<int> mappedFuture = future.mapFailure([](std::string x) { return x + "abc"; });
+    EXPECT_FALSE(mappedFuture.isCompleted());
+    EXPECT_NE(future, mappedFuture);
+    promise.failure("42");
+    EXPECT_EQ("42", future.failureReason());
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_FALSE(mappedFuture.isSucceeded());
+    EXPECT_TRUE(mappedFuture.isFailed());
+    EXPECT_EQ("42abc", mappedFuture.failureReason());
+}
+
+TEST_F(FutureMorphismsTest, differentTypeMapFailure)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    Future<int, int> mappedFuture = future.mapFailure([](std::string x) { return std::stoi(x); });
+    EXPECT_FALSE(mappedFuture.isCompleted());
+    promise.failure("42");
+    EXPECT_EQ("42", future.failureReason());
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_FALSE(mappedFuture.isSucceeded());
+    EXPECT_TRUE(mappedFuture.isFailed());
+    EXPECT_EQ(42, mappedFuture.failureReason());
+}
+
+TEST_F(FutureMorphismsTest, mapNoEffect)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    bool executed = false;
+    TestFuture<int> mappedFuture = future.map([&executed](int x) {
+        executed = true;
+        return x * 2;
+    });
+    EXPECT_FALSE(mappedFuture.isCompleted());
+    EXPECT_NE(future, mappedFuture);
+    promise.failure("42");
+    mappedFuture.wait(1000);
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_FALSE(mappedFuture.isSucceeded());
+    EXPECT_TRUE(mappedFuture.isFailed());
+    EXPECT_EQ("42", mappedFuture.failureReason());
+    EXPECT_FALSE(executed);
+}
+TEST_F(FutureMorphismsTest, differentTypeMapNoEffect)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    bool executed = false;
+    TestFuture<double> mappedFuture = future.map([&executed](int x) {
+        executed = true;
+        return x / 2.0;
+    });
+    EXPECT_FALSE(mappedFuture.isCompleted());
+    promise.failure("42");
+    mappedFuture.wait(1000);
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_FALSE(mappedFuture.isSucceeded());
+    EXPECT_TRUE(mappedFuture.isFailed());
+    EXPECT_EQ("42", mappedFuture.failureReason());
+    EXPECT_FALSE(executed);
+}
+
+TEST_F(FutureMorphismsTest, mapFailureNoEffect)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    bool executed = false;
+    TestFuture<int> mappedFuture = future.mapFailure([&executed](std::string x) {
+        executed = true;
+        return x + "abc";
+    });
+    EXPECT_FALSE(mappedFuture.isCompleted());
+    EXPECT_NE(future, mappedFuture);
+    promise.success(42);
+    mappedFuture.wait(1000);
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_TRUE(mappedFuture.isSucceeded());
+    EXPECT_FALSE(mappedFuture.isFailed());
+    EXPECT_EQ(42, mappedFuture.result());
+    EXPECT_FALSE(executed);
+}
+
+TEST_F(FutureMorphismsTest, differentTypeMapFailureNoEffect)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    bool executed = false;
+    Future<int, int> mappedFuture = future.mapFailure([&executed](std::string x) {
+        executed = true;
+        return std::stoi(x);
+    });
+    EXPECT_FALSE(mappedFuture.isCompleted());
+    promise.success(42);
+    mappedFuture.wait(1000);
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_TRUE(mappedFuture.isSucceeded());
+    EXPECT_FALSE(mappedFuture.isFailed());
+    EXPECT_EQ(42, mappedFuture.result());
+    EXPECT_FALSE(executed);
+}
+
 TEST_F(FutureMorphismsTest, flatMap)
 {
-    Promise<int> promise;
-    Promise<int> innerPromise;
+    TestPromise<int> promise;
+    TestPromise<int> innerPromise;
     auto future = createFuture(promise);
-    Future<int> mappedFuture = future.flatMap(
+    TestFuture<int> mappedFuture = future.flatMap(
         [innerPromise](int x) { return innerPromise.future().map([x](int y) { return x * y; }); });
     EXPECT_NE(future, mappedFuture);
     promise.success(42);
@@ -51,10 +167,10 @@ TEST_F(FutureMorphismsTest, flatMap)
 
 TEST_F(FutureMorphismsTest, differentTypeFlatMap)
 {
-    Promise<int> promise;
-    Promise<double> innerPromise;
+    TestPromise<int> promise;
+    TestPromise<double> innerPromise;
     auto future = createFuture(promise);
-    Future<double> mappedFuture = future.flatMap(
+    TestFuture<double> mappedFuture = future.flatMap(
         [innerPromise](int x) { return innerPromise.future().map([x](double y) { return x / y; }); });
     promise.success(42);
     EXPECT_EQ(42, future.result());
@@ -66,12 +182,53 @@ TEST_F(FutureMorphismsTest, differentTypeFlatMap)
     EXPECT_DOUBLE_EQ(21.0, mappedFuture.result());
 }
 
+TEST_F(FutureMorphismsTest, flatMapNoEffect)
+{
+    TestPromise<int> promise;
+    TestPromise<int> innerPromise;
+    auto future = createFuture(promise);
+    bool executed = false;
+    TestFuture<int> mappedFuture = future.flatMap([innerPromise, &executed](int x) {
+        executed = true;
+        return innerPromise.future().map([x](int y) { return x * y; });
+    });
+    EXPECT_NE(future, mappedFuture);
+    promise.failure("42");
+    innerPromise.success(2);
+    mappedFuture.wait(1000);
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_FALSE(mappedFuture.isSucceeded());
+    EXPECT_TRUE(mappedFuture.isFailed());
+    EXPECT_EQ("42", mappedFuture.failureReason());
+    EXPECT_FALSE(executed);
+}
+
+TEST_F(FutureMorphismsTest, differentTypeFlatMapNoEffect)
+{
+    TestPromise<int> promise;
+    TestPromise<double> innerPromise;
+    auto future = createFuture(promise);
+    bool executed = false;
+    TestFuture<double> mappedFuture = future.flatMap([innerPromise, &executed](int x) {
+        executed = true;
+        return innerPromise.future().map([x](double y) { return x / y; });
+    });
+    promise.failure("42");
+    innerPromise.success(2.0);
+    mappedFuture.wait(1000);
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_FALSE(mappedFuture.isSucceeded());
+    EXPECT_TRUE(mappedFuture.isFailed());
+    EXPECT_EQ("42", mappedFuture.failureReason());
+    EXPECT_FALSE(executed);
+}
+
 TEST_F(FutureMorphismsTest, andThen)
 {
-    Promise<int> promise;
-    Promise<int> innerPromise;
+    TestPromise<int> promise;
+    TestPromise<int> innerPromise;
     auto future = createFuture(promise);
-    Future<int> mappedFuture = future.andThen([innerPromise]() { return innerPromise.future(); });
+    TestFuture<int> mappedFuture = future.andThen([innerPromise]() { return innerPromise.future(); });
     EXPECT_NE(future, mappedFuture);
     promise.success(42);
     EXPECT_EQ(42, future.result());
@@ -85,9 +242,9 @@ TEST_F(FutureMorphismsTest, andThen)
 
 TEST_F(FutureMorphismsTest, andThenValueR)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto future = createFuture(promise);
-    Future<int> mappedFuture = future.andThenValue(2);
+    TestFuture<int> mappedFuture = future.andThenValue(2);
     EXPECT_NE(future, mappedFuture);
     promise.success(42);
     EXPECT_EQ(42, future.result());
@@ -99,10 +256,10 @@ TEST_F(FutureMorphismsTest, andThenValueR)
 
 TEST_F(FutureMorphismsTest, andThenValueL)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto future = createFuture(promise);
     int result = 2;
-    Future<int> mappedFuture = future.andThenValue(result);
+    TestFuture<int> mappedFuture = future.andThenValue(result);
     EXPECT_NE(future, mappedFuture);
     promise.success(42);
     EXPECT_EQ(42, future.result());
@@ -115,10 +272,10 @@ TEST_F(FutureMorphismsTest, andThenValueL)
 
 TEST_F(FutureMorphismsTest, andThenValueCL)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto future = createFuture(promise);
     const int result = 2;
-    Future<int> mappedFuture = future.andThenValue(result);
+    TestFuture<int> mappedFuture = future.andThenValue(result);
     EXPECT_NE(future, mappedFuture);
     promise.success(42);
     EXPECT_EQ(42, future.result());
@@ -130,10 +287,10 @@ TEST_F(FutureMorphismsTest, andThenValueCL)
 
 TEST_F(FutureMorphismsTest, differentTypeAndThen)
 {
-    Promise<int> promise;
-    Promise<double> innerPromise;
+    TestPromise<int> promise;
+    TestPromise<double> innerPromise;
     auto future = createFuture(promise);
-    Future<double> mappedFuture = future.andThen([innerPromise]() { return innerPromise.future(); });
+    TestFuture<double> mappedFuture = future.andThen([innerPromise]() { return innerPromise.future(); });
     promise.success(42);
     EXPECT_EQ(42, future.result());
     EXPECT_FALSE(mappedFuture.isCompleted());
@@ -146,9 +303,9 @@ TEST_F(FutureMorphismsTest, differentTypeAndThen)
 
 TEST_F(FutureMorphismsTest, differentTypeAndThenValueR)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto future = createFuture(promise);
-    Future<double> mappedFuture = future.andThenValue(2.0);
+    TestFuture<double> mappedFuture = future.andThenValue(2.0);
     promise.success(42);
     EXPECT_EQ(42, future.result());
     ASSERT_TRUE(mappedFuture.isCompleted());
@@ -159,10 +316,10 @@ TEST_F(FutureMorphismsTest, differentTypeAndThenValueR)
 
 TEST_F(FutureMorphismsTest, differentTypeAndThenValueL)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto future = createFuture(promise);
     double result = 2.0;
-    Future<double> mappedFuture = future.andThenValue(result);
+    TestFuture<double> mappedFuture = future.andThenValue(result);
     promise.success(42);
     EXPECT_EQ(42, future.result());
     ASSERT_TRUE(mappedFuture.isCompleted());
@@ -174,10 +331,10 @@ TEST_F(FutureMorphismsTest, differentTypeAndThenValueL)
 
 TEST_F(FutureMorphismsTest, differentTypeAndThenValueCL)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto future = createFuture(promise);
     const double result = 2.0;
-    Future<double> mappedFuture = future.andThenValue(result);
+    TestFuture<double> mappedFuture = future.andThenValue(result);
     promise.success(42);
     EXPECT_EQ(42, future.result());
     ASSERT_TRUE(mappedFuture.isCompleted());
@@ -188,9 +345,9 @@ TEST_F(FutureMorphismsTest, differentTypeAndThenValueCL)
 
 TEST_F(FutureMorphismsTest, filterPositive)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto future = createFuture(promise);
-    Future<int> filteredFuture = future.filter([](int x) -> bool { return x % 2; });
+    TestFuture<int> filteredFuture = future.filter([](int x) -> bool { return x % 2; });
     EXPECT_FALSE(filteredFuture.isCompleted());
     EXPECT_NE(future, filteredFuture);
     promise.success(41);
@@ -203,9 +360,9 @@ TEST_F(FutureMorphismsTest, filterPositive)
 
 TEST_F(FutureMorphismsTest, filterNegative)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto future = createFuture(promise);
-    Future<int> filteredFuture = future.filter([](int x) { return x % 2; });
+    TestFuture<int> filteredFuture = future.filter([](int x) { return x % 2; });
     EXPECT_FALSE(filteredFuture.isCompleted());
     EXPECT_NE(future, filteredFuture);
     promise.success(42);
@@ -213,14 +370,14 @@ TEST_F(FutureMorphismsTest, filterNegative)
     ASSERT_TRUE(filteredFuture.isCompleted());
     EXPECT_FALSE(filteredFuture.isSucceeded());
     EXPECT_TRUE(filteredFuture.isFailed());
-    EXPECT_EQ("Result wasn't good enough", filteredFuture.failureReason().toString());
+    EXPECT_EQ("Result wasn't good enough", filteredFuture.failureReason());
 }
 
 TEST_F(FutureMorphismsTest, filterNegativeCustomRejectedR)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto future = createFuture(promise);
-    Future<int> filteredFuture = future.filter([](int) { return false; }, "Custom");
+    TestFuture<int> filteredFuture = future.filter([](int) { return false; }, "Custom");
     EXPECT_FALSE(filteredFuture.isCompleted());
     EXPECT_NE(future, filteredFuture);
     promise.success(42);
@@ -228,15 +385,15 @@ TEST_F(FutureMorphismsTest, filterNegativeCustomRejectedR)
     ASSERT_TRUE(filteredFuture.isCompleted());
     EXPECT_FALSE(filteredFuture.isSucceeded());
     EXPECT_TRUE(filteredFuture.isFailed());
-    EXPECT_EQ("Custom", filteredFuture.failureReason().toString());
+    EXPECT_EQ("Custom", filteredFuture.failureReason());
 }
 
 TEST_F(FutureMorphismsTest, filterNegativeCustomRejectedL)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto future = createFuture(promise);
-    QVariant rejected = "Custom";
-    Future<int> filteredFuture = future.filter([](int) { return false; }, rejected);
+    std::string rejected = "Custom";
+    TestFuture<int> filteredFuture = future.filter([](int) { return false; }, rejected);
     EXPECT_FALSE(filteredFuture.isCompleted());
     EXPECT_NE(future, filteredFuture);
     promise.success(42);
@@ -244,5 +401,178 @@ TEST_F(FutureMorphismsTest, filterNegativeCustomRejectedL)
     ASSERT_TRUE(filteredFuture.isCompleted());
     EXPECT_FALSE(filteredFuture.isSucceeded());
     EXPECT_TRUE(filteredFuture.isFailed());
-    EXPECT_EQ("Custom", filteredFuture.failureReason().toString());
+    EXPECT_EQ("Custom", filteredFuture.failureReason());
+}
+
+TEST_F(FutureMorphismsTest, recover)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    TestFuture<int> recoveredFuture = future.recover([](const auto &) { return 42; });
+    EXPECT_FALSE(future.isCompleted());
+    EXPECT_FALSE(recoveredFuture.isCompleted());
+    promise.failure("failed");
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_FALSE(future.isSucceeded());
+    EXPECT_TRUE(future.isFailed());
+    EXPECT_EQ("failed", future.failureReason());
+
+    ASSERT_TRUE(recoveredFuture.isCompleted());
+    EXPECT_TRUE(recoveredFuture.isSucceeded());
+    EXPECT_FALSE(recoveredFuture.isFailed());
+    EXPECT_EQ(42, recoveredFuture.result());
+}
+
+TEST_F(FutureMorphismsTest, recoverNoOp)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    TestFuture<int> recoveredFuture = future.recover([](const auto &) { return 42; });
+    EXPECT_FALSE(future.isCompleted());
+    EXPECT_FALSE(recoveredFuture.isCompleted());
+    promise.success(21);
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_TRUE(future.isSucceeded());
+
+    ASSERT_TRUE(recoveredFuture.isCompleted());
+    EXPECT_TRUE(recoveredFuture.isSucceeded());
+    EXPECT_EQ(21, recoveredFuture.result());
+}
+
+TEST_F(FutureMorphismsTest, recoverFromWithTestFailure)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    TestFuture<int> recoveredFuture = future.recover([](const auto &) { return 42; });
+    EXPECT_NE(future, recoveredFuture);
+    EXPECT_FALSE(future.isCompleted());
+    EXPECT_FALSE(recoveredFuture.isCompleted());
+    promise.success(WithTestFailure("failed"));
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_FALSE(future.isSucceeded());
+    EXPECT_TRUE(future.isFailed());
+    EXPECT_EQ("failed", future.failureReason());
+
+    ASSERT_TRUE(recoveredFuture.isCompleted());
+    EXPECT_TRUE(recoveredFuture.isSucceeded());
+    EXPECT_FALSE(recoveredFuture.isFailed());
+    EXPECT_EQ(42, recoveredFuture.result());
+}
+
+TEST_F(FutureMorphismsTest, recoverAndFail)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    TestFuture<int> recoveredFuture = future.recover([](const auto &) -> int { return WithTestFailure("failed2"); });
+    EXPECT_NE(future, recoveredFuture);
+    EXPECT_FALSE(future.isCompleted());
+    EXPECT_FALSE(recoveredFuture.isCompleted());
+    promise.failure("failed");
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_FALSE(future.isSucceeded());
+    EXPECT_TRUE(future.isFailed());
+    EXPECT_EQ("failed", future.failureReason());
+
+    ASSERT_TRUE(recoveredFuture.isCompleted());
+    EXPECT_FALSE(recoveredFuture.isSucceeded());
+    EXPECT_TRUE(recoveredFuture.isFailed());
+    EXPECT_EQ("failed2", recoveredFuture.failureReason());
+    EXPECT_EQ(0, recoveredFuture.result());
+}
+
+TEST_F(FutureMorphismsTest, recoverWith)
+{
+    TestPromise<int> promise;
+    TestPromise<int> innerPromise;
+    auto future = createFuture(promise);
+    TestFuture<int> recoveredFuture = future.recoverWith([innerPromise](const auto &) { return innerPromise.future(); });
+    EXPECT_NE(future, recoveredFuture);
+    EXPECT_FALSE(future.isCompleted());
+    EXPECT_FALSE(recoveredFuture.isCompleted());
+    promise.failure("failed");
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_FALSE(future.isSucceeded());
+    EXPECT_TRUE(future.isFailed());
+    EXPECT_EQ("failed", future.failureReason());
+    EXPECT_FALSE(recoveredFuture.isCompleted());
+
+    innerPromise.success(42);
+    ASSERT_TRUE(recoveredFuture.isCompleted());
+    EXPECT_TRUE(recoveredFuture.isSucceeded());
+    EXPECT_FALSE(recoveredFuture.isFailed());
+    EXPECT_EQ(42, recoveredFuture.result());
+}
+
+TEST_F(FutureMorphismsTest, recoverWithNoOp)
+{
+    TestPromise<int> promise;
+    TestPromise<int> innerPromise;
+    auto future = createFuture(promise);
+    TestFuture<int> recoveredFuture = future.recoverWith([innerPromise](const auto &) { return innerPromise.future(); });
+    EXPECT_FALSE(future.isCompleted());
+    EXPECT_FALSE(recoveredFuture.isCompleted());
+    promise.success(21);
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_TRUE(future.isSucceeded());
+
+    ASSERT_TRUE(recoveredFuture.isCompleted());
+    EXPECT_TRUE(recoveredFuture.isSucceeded());
+    EXPECT_EQ(21, recoveredFuture.result());
+}
+
+TEST_F(FutureMorphismsTest, recoverWithAndFail)
+{
+    TestPromise<int> promise;
+    TestPromise<int> innerPromise;
+    auto future = createFuture(promise);
+    TestFuture<int> recoveredFuture = future.recoverWith([innerPromise](const auto &) { return innerPromise.future(); });
+    EXPECT_NE(future, recoveredFuture);
+    EXPECT_FALSE(future.isCompleted());
+    EXPECT_FALSE(recoveredFuture.isCompleted());
+    promise.failure("failed");
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_FALSE(future.isSucceeded());
+    EXPECT_TRUE(future.isFailed());
+    EXPECT_EQ("failed", future.failureReason());
+    EXPECT_FALSE(recoveredFuture.isCompleted());
+
+    innerPromise.failure("failed2");
+    ASSERT_TRUE(recoveredFuture.isCompleted());
+    EXPECT_FALSE(recoveredFuture.isSucceeded());
+    EXPECT_EQ("failed2", recoveredFuture.failureReason());
+}
+
+TEST_F(FutureMorphismsTest, recoverValue)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    TestFuture<int> recoveredFuture = future.recoverValue(42);
+    EXPECT_FALSE(future.isCompleted());
+    EXPECT_FALSE(recoveredFuture.isCompleted());
+    promise.failure("failed");
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_FALSE(future.isSucceeded());
+    EXPECT_TRUE(future.isFailed());
+    EXPECT_EQ("failed", future.failureReason());
+
+    ASSERT_TRUE(recoveredFuture.isCompleted());
+    EXPECT_TRUE(recoveredFuture.isSucceeded());
+    EXPECT_FALSE(recoveredFuture.isFailed());
+    EXPECT_EQ(42, recoveredFuture.result());
+}
+
+TEST_F(FutureMorphismsTest, recoverValueNoOp)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    TestFuture<int> recoveredFuture = future.recoverValue(42);
+    EXPECT_FALSE(future.isCompleted());
+    EXPECT_FALSE(recoveredFuture.isCompleted());
+    promise.success(21);
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_TRUE(future.isSucceeded());
+
+    ASSERT_TRUE(recoveredFuture.isCompleted());
+    EXPECT_TRUE(recoveredFuture.isSucceeded());
+    EXPECT_EQ(21, recoveredFuture.result());
 }

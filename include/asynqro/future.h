@@ -33,63 +33,23 @@
 #include "asynqro/impl/spinlock.h"
 #include "asynqro/impl/zipfutures.h"
 
-#include <QCoreApplication>
-#include <QMutex>
-#include <QThread>
-#include <QTime>
-#include <QVariant>
-#include <QWaitCondition>
+#ifdef ASYNQRO_QT_SUPPORT
+#    include <QCoreApplication>
+#    include <QThread>
+#endif
 
 #include <cassert>
+#include <condition_variable>
+#include <functional>
 #include <iostream>
 #include <list>
 #include <memory>
+#include <mutex>
 #include <tuple>
 #include <type_traits>
 #include <variant>
 
 namespace asynqro {
-template <typename... T>
-class Future;
-
-template <>
-class Future<>
-{
-public:
-    Future() = delete;
-    Future(const Future &) = delete;
-    Future(Future &&) = delete;
-    Future &operator=(const Future &) = delete;
-    Future &operator=(Future &&) = delete;
-    ~Future() = delete;
-
-    template <typename T>
-    static auto successful(T &&value) noexcept
-    {
-        return Future<std::decay_t<T>>::successful(std::forward<T>(value));
-    }
-
-    template <typename T>
-    static auto successful(const T &value) noexcept
-    {
-        return Future<T>::successful(value);
-    }
-
-    // This overload copies container to make sure that it will be reachable in future
-    template <typename T, template <typename...> typename F, template <typename...> typename Container, typename... Fs>
-    static Future<Container<T>> sequence(const Container<F<T>, Fs...> &container) noexcept
-    {
-        Container<F<T>> copy = container;
-        return Future<T>::sequence(std::move(copy));
-    }
-
-    template <typename T, template <typename...> typename F, template <typename...> typename Container, typename... Fs>
-    static Future<Container<T>> sequence(Container<F<T>, Fs...> &&container) noexcept
-    {
-        return Future<T>::sequence(std::move(container));
-    }
-};
-
 namespace detail {
 enum FutureState
 {
@@ -101,7 +61,7 @@ enum FutureState
 void ASYNQRO_EXPORT incrementFuturesUsage();
 void ASYNQRO_EXPORT decrementFuturesUsage();
 
-template <typename T>
+template <typename T, typename FailureT>
 struct FutureData
 {
     FutureData()
@@ -110,10 +70,10 @@ struct FutureData
         incrementFuturesUsage();
 #endif
     }
-    FutureData(const FutureData<T> &) = delete;
-    FutureData(FutureData<T> &&) = delete;
-    FutureData &operator=(const FutureData<T> &) = delete;
-    FutureData &operator=(FutureData<T> &&) = delete;
+    FutureData(const FutureData<T, FailureT> &) = delete;
+    FutureData(FutureData<T, FailureT> &&) = delete;
+    FutureData<T, FailureT> &operator=(const FutureData<T, FailureT> &) = delete;
+    FutureData<T, FailureT> &operator=(FutureData<T, FailureT> &&) = delete;
     ~FutureData()
     {
 #ifdef ASYNQRO_DEBUG_COUNT_OBJECTS
@@ -122,42 +82,42 @@ struct FutureData
     }
 
     std::atomic_int state{NotCompletedFuture};
-    std::variant<std::monostate, T, QVariant> value;
+    std::variant<std::monostate, T, FailureT> value;
 
     std::list<std::function<void(const T &)>> successCallbacks;
-    std::list<std::function<void(const QVariant &)>> failureCallbacks;
+    std::list<std::function<void(const FailureT &)>> failureCallbacks;
 
     SpinLock mainLock;
 };
 
 } // namespace detail
 
-qint64 ASYNQRO_EXPORT instantFuturesUsage();
-
-template <typename T>
-class Future<T>
+template <typename T, typename FailureT>
+class Future
 {
-    static_assert(!std::is_same_v<T, void>, "Future<void> is not allowed. Use Future<bool> instead");
-    template <typename... U>
+    static_assert(!std::is_same_v<T, void>, "Future<void, _> is not allowed. Use Future<bool, _> instead");
+    static_assert(!std::is_same_v<FailureT, void>, "Future<_, void> is not allowed. Use Future<_, bool> instead");
+    template <typename T2, typename FailureT2>
     friend class Future;
-    friend class Promise<T>;
-    friend struct detail::FutureData<T>;
-    friend struct WithFailure;
+    friend class Promise<T, FailureT>;
+    friend struct detail::FutureData<T, FailureT>;
+    friend struct WithFailure<FailureT>;
     template <typename... U>
     friend class CancelableFuture;
 
 public:
     using Value = T;
+    using Failure = FailureT;
     Future() noexcept = default; // Creates invalid future, calling methods of such object will lead to assertion/segfault
-    Future(const Promise<T> &promise) { d = promise.future().d; }
-    Future(const Future<T> &) noexcept = default;
-    Future(Future<T> &&) noexcept = default;
-    Future &operator=(const Future<T> &) noexcept = default;
-    Future &operator=(Future<T> &&) noexcept = default;
+    explicit Future(const Promise<T, FailureT> &promise) { d = promise.future().d; }
+    Future(const Future<T, FailureT> &) noexcept = default;
+    Future(Future<T, FailureT> &&) noexcept = default;
+    Future<T, FailureT> &operator=(const Future<T, FailureT> &) noexcept = default;
+    Future<T, FailureT> &operator=(Future<T, FailureT> &&) noexcept = default;
     ~Future() = default;
 
-    bool operator==(const Future<T> &other) const noexcept { return d == other.d; }
-    bool operator!=(const Future<T> &other) const noexcept { return !operator==(other); }
+    bool operator==(const Future<T, FailureT> &other) const noexcept { return d == other.d; }
+    bool operator!=(const Future<T, FailureT> &other) const noexcept { return !operator==(other); }
 
     bool isCompleted() const noexcept
     {
@@ -178,46 +138,52 @@ public:
 
     bool isValid() const noexcept { return static_cast<bool>(d); }
 
-    bool wait(long long timeout = -1) const noexcept
+    bool wait(int64_t timeout = -1) const noexcept
     {
+        using namespace std::chrono_literals;
         assert(d);
         if (isCompleted())
             return true;
         bool waitForever = timeout < 1;
-        bool maintainEvents = qApp && QThread::currentThread() == qApp->thread();
+        bool maintainEvents =
+#ifdef ASYNQRO_QT_SUPPORT
+            qApp && QThread::currentThread() == qApp->thread();
+#else
+            false;
+#endif
         if (maintainEvents || !waitForever) {
-            QTime timer;
-            timer.start();
-            while (waitForever || (timer.elapsed() <= timeout)) {
+            auto finalPoint = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(timeout);
+            while (waitForever || (std::chrono::high_resolution_clock::now() <= finalPoint)) {
                 if (isCompleted())
                     return true;
+#ifdef ASYNQRO_QT_SUPPORT
                 if (maintainEvents)
                     QCoreApplication::processEvents();
                 else
-                    QThread::msleep(1);
+#endif
+                    std::this_thread::sleep_for(1ms); // NOLINT(readability-misleading-indentation)
             }
         } else {
             if constexpr (std::is_copy_constructible_v<T>) {
-                QMutex mutex;
-                QWaitCondition waiter;
-                mutex.lock();
+                std::mutex mutex;
+                std::condition_variable waiter;
+                std::unique_lock lock(mutex);
                 bool wasInSameThread = false;
                 recoverValue(T()).onSuccess(
-                    [&waiter, &mutex, &wasInSameThread, waitingThread = QThread::currentThread()](const T &) {
-                        if (QThread::currentThread() == waitingThread) {
+                    [&waiter, &mutex, &wasInSameThread, waitingThread = std::this_thread::get_id()](const T &) {
+                        if (std::this_thread::get_id() == waitingThread) {
                             wasInSameThread = true;
                             return;
                         }
                         mutex.lock(); // We wait here for waiter start
                         mutex.unlock();
-                        waiter.wakeAll();
+                        waiter.notify_all();
                     });
                 if (!wasInSameThread)
-                    waiter.wait(&mutex);
-                mutex.unlock();
+                    waiter.wait(lock);
             } else {
                 while (!isCompleted())
-                    QThread::msleep(1);
+                    std::this_thread::sleep_for(1ms);
             }
         }
         return isCompleted();
@@ -240,16 +206,16 @@ public:
         return std::get<1>(d->value);
     }
 
-    QVariant failureReason() const noexcept
+    FailureT failureReason() const noexcept
     {
         assert(d);
         if (!isCompleted())
             wait();
-        return isFailed() ? std::get<2>(d->value) : QVariant();
+        return isFailed() ? std::get<2>(d->value) : FailureT();
     }
 
     template <typename Func, typename = std::enable_if_t<std::is_invocable_v<Func, T>>>
-    Future<T> onSuccess(Func &&f) const noexcept
+    Future<T, FailureT> onSuccess(Func &&f) const noexcept
     {
         assert(d);
         bool callIt = false;
@@ -266,11 +232,11 @@ public:
             } catch (...) {
             }
         }
-        return Future<T>(d);
+        return Future<T, FailureT>(d);
     }
 
-    template <typename Func, typename = std::enable_if_t<std::is_invocable_v<Func, QVariant>>>
-    Future<T> onFailure(Func &&f) const noexcept
+    template <typename Func, typename = std::enable_if_t<std::is_invocable_v<Func, FailureT>>>
+    Future<T, FailureT> onFailure(Func &&f) const noexcept
     {
         assert(d);
         bool callIt = false;
@@ -287,13 +253,15 @@ public:
             } catch (...) {
             }
         }
-        return Future<T>(d);
+        return Future<T, FailureT>(d);
     }
 
     template <typename Func, typename = std::enable_if_t<std::is_invocable_r_v<bool, Func, T>>>
-    Future<T> filter(Func &&f, const QVariant &rejected = QStringLiteral("Result wasn't good enough")) const noexcept
+    Future<T, FailureT>
+    filter(Func &&f, const FailureT &rejected = failure::failureFromString<FailureT>("Result wasn't good enough")) const
+        noexcept
     {
-        Future<T> result = Future<T>::create();
+        Future<T, FailureT> result = Future<T, FailureT>::create();
         onSuccess([result, f = std::forward<Func>(f), rejected](const T &v) noexcept {
             try {
                 if (f(v))
@@ -301,64 +269,81 @@ public:
                 else
                     result.fillFailure(rejected);
             } catch (const std::exception &e) {
-                result.fillFailure(detail::exceptionFailure(e));
+                result.fillFailure(detail::exceptionFailure<FailureT>(e));
             } catch (...) {
-                result.fillFailure(detail::exceptionFailure());
+                result.fillFailure(detail::exceptionFailure<FailureT>());
             }
         });
-        onFailure([result](const QVariant &failure) noexcept { result.fillFailure(failure); });
+        onFailure([result](const FailureT &failure) noexcept { result.fillFailure(failure); });
         return result;
     }
 
     template <typename Func, typename U = std::invoke_result_t<Func, T>>
-    Future<U> map(Func &&f) const noexcept
+    Future<U, FailureT> map(Func &&f) const noexcept
     {
-        Future<U> result = Future<U>::create();
+        Future<U, FailureT> result = Future<U, FailureT>::create();
         onSuccess([result, f = std::forward<Func>(f)](const T &v) noexcept {
             try {
                 result.fillSuccess(f(v));
             } catch (const std::exception &e) {
-                result.fillFailure(detail::exceptionFailure(e));
+                result.fillFailure(detail::exceptionFailure<FailureT>(e));
             } catch (...) {
-                result.fillFailure(detail::exceptionFailure());
+                result.fillFailure(detail::exceptionFailure<FailureT>());
             }
         });
-        onFailure([result](const QVariant &failure) noexcept { result.fillFailure(failure); });
+        onFailure([result](const FailureT &failure) noexcept { result.fillFailure(failure); });
+        return result;
+    }
+
+    template <typename Func, typename OtherFailure = std::invoke_result_t<Func, FailureT>>
+    Future<T, OtherFailure> mapFailure(Func &&f) const noexcept
+    {
+        Future<T, OtherFailure> result = Future<T, OtherFailure>::create();
+        onSuccess([result](const T &v) noexcept { result.fillSuccess(v); });
+        onFailure([result, f = std::forward<Func>(f)](const FailureT &failure) noexcept {
+            try {
+                result.fillFailure(f(failure));
+            } catch (const std::exception &e) {
+                result.fillFailure(detail::exceptionFailure<OtherFailure>(e));
+            } catch (...) {
+                result.fillFailure(detail::exceptionFailure<OtherFailure>());
+            }
+        });
         return result;
     }
 
     template <typename Func, typename U = decltype(std::declval<std::invoke_result_t<Func, T>>().result())>
-    Future<U> flatMap(Func &&f) const noexcept
+    Future<U, FailureT> flatMap(Func &&f) const noexcept
     {
-        Future<U> result = Future<U>::create();
+        Future<U, FailureT> result = Future<U, FailureT>::create();
         onSuccess([result, f = std::forward<Func>(f)](const T &v) noexcept {
             try {
                 f(v).onSuccess([result](const U &v) noexcept { result.fillSuccess(v); })
-                    .onFailure([result](const QVariant &failure) noexcept { result.fillFailure(failure); });
+                    .onFailure([result](const FailureT &failure) noexcept { result.fillFailure(failure); });
             } catch (const std::exception &e) {
-                result.fillFailure(detail::exceptionFailure(e));
+                result.fillFailure(detail::exceptionFailure<FailureT>(e));
             } catch (...) {
-                result.fillFailure(detail::exceptionFailure());
+                result.fillFailure(detail::exceptionFailure<FailureT>());
             }
         });
-        onFailure([result](const QVariant &failure) noexcept { result.fillFailure(failure); });
+        onFailure([result](const FailureT &failure) noexcept { result.fillFailure(failure); });
         return result;
     }
 
-    template <typename Func, typename U = decltype(std::declval<std::invoke_result_t<Func>>().result())>
-    Future<U> andThen(Func &&f) const noexcept
+    template <typename Func>
+    auto andThen(Func &&f) const noexcept
     {
         return flatMap([f = std::forward<Func>(f)](const T &) { return f(); });
     }
 
     template <typename T2, typename U = typename std::decay_t<T2>>
-    Future<U> andThenValue(T2 &&value) const noexcept
+    Future<U, FailureT> andThenValue(T2 &&value) const noexcept
     {
         return map([value = std::forward<T2>(value)](const auto &) noexcept { return value; });
     }
 
     template <typename Func, typename Result>
-    Future<Result> innerReduce(Func &&f, Result acc) const noexcept
+    Future<Result, FailureT> innerReduce(Func &&f, Result acc) const noexcept
     {
         return map([f = std::forward<Func>(f), acc = std::move(acc)](const T &v) {
             auto result = traverse::reduce(v, f, std::move(acc));
@@ -367,7 +352,7 @@ public:
     }
 
     template <typename Func, typename Result>
-    Future<Result> innerMap(Func &&f, Result dest) const noexcept
+    Future<Result, FailureT> innerMap(Func &&f, Result dest) const noexcept
     {
         return map([f = std::forward<Func>(f), dest = std::move(dest)](const T &v) {
             return traverse::map(v, f, std::move(dest));
@@ -375,19 +360,19 @@ public:
     }
 
     template <typename Func>
-    auto innerMap(Func &&f) const noexcept -> decltype(Future<decltype(traverse::map(T(), f))>())
+    auto innerMap(Func &&f) const noexcept -> decltype(Future<decltype(traverse::map(T(), f)), FailureT>())
     {
         return map([f = std::forward<Func>(f)](const T &v) { return traverse::map(v, f); });
     }
 
     template <typename Func>
-    Future<T> innerFilter(Func &&f) const noexcept
+    Future<T, FailureT> innerFilter(Func &&f) const noexcept
     {
         return map([f = std::forward<Func>(f)](const T &v) { return traverse::filter(v, f); });
     }
 
     template <typename Result>
-    Future<Result> innerFlatten(Result acc) const noexcept
+    Future<Result, FailureT> innerFlatten(Result acc) const noexcept
     {
         return map([acc = std::move(acc)](const T &v) { return traverse::flatten(v, std::move(acc)); });
     }
@@ -398,103 +383,114 @@ public:
         return map([](const T &v) { return traverse::flatten(v); });
     }
 
-    template <typename Func, typename = std::enable_if_t<std::is_invocable_v<Func, QVariant>>>
-    Future<T> recover(Func &&f) const noexcept
+    template <typename Func, typename = std::enable_if_t<std::is_invocable_v<Func, FailureT>>>
+    Future<T, FailureT> recover(Func &&f) const noexcept
     {
-        Future<T> result = Future<T>::create();
+        Future<T, FailureT> result = Future<T, FailureT>::create();
         onSuccess([result](const T &v) noexcept { result.fillSuccess(v); });
-        onFailure([result, f = std::forward<Func>(f)](const QVariant &failure) noexcept {
+        onFailure([result, f = std::forward<Func>(f)](const FailureT &failure) noexcept {
             try {
                 result.fillSuccess(f(failure));
             } catch (const std::exception &e) {
-                result.fillFailure(detail::exceptionFailure(e));
+                result.fillFailure(detail::exceptionFailure<FailureT>(e));
             } catch (...) {
-                result.fillFailure(detail::exceptionFailure());
+                result.fillFailure(detail::exceptionFailure<FailureT>());
             }
         });
         return result;
     }
 
-    template <typename Func, typename = decltype(std::declval<std::invoke_result_t<Func, QVariant>>().result())>
-    Future<T> recoverWith(Func &&f) const noexcept
+    template <typename Func,
+              typename OtherFailure = decltype(std::declval<std::invoke_result_t<Func, FailureT>>().failureReason()),
+              typename = decltype(std::declval<std::invoke_result_t<Func, FailureT>>().result())>
+    Future<T, OtherFailure> recoverWith(Func &&f) const noexcept
     {
-        Future<T> result = Future<T>::create();
+        Future<T, OtherFailure> result = Future<T, OtherFailure>::create();
         onSuccess([result](const T &v) noexcept { result.fillSuccess(v); });
-        onFailure([result, f = std::forward<Func>(f)](const QVariant &failure) noexcept {
+        onFailure([result, f = std::forward<Func>(f)](const FailureT &failure) noexcept {
             try {
                 f(failure)
                     .onSuccess([result](const T &v) noexcept { result.fillSuccess(v); })
-                    .onFailure([result](const QVariant &failure) noexcept { result.fillFailure(failure); });
+                    .onFailure([result](const OtherFailure &failure) noexcept { result.fillFailure(failure); });
             } catch (const std::exception &e) {
-                result.fillFailure(detail::exceptionFailure(e));
+                result.fillFailure(detail::exceptionFailure<OtherFailure>(e));
             } catch (...) {
-                result.fillFailure(detail::exceptionFailure());
+                result.fillFailure(detail::exceptionFailure<OtherFailure>());
             }
         });
         return result;
     }
 
     template <typename Dummy = void, typename = std::enable_if_t<std::is_copy_constructible_v<T>, Dummy>>
-    Future<T> recoverValue(T &&value) const noexcept
+    Future<T, FailureT> recoverValue(T &&value) const noexcept
     {
-        return recover([value = std::forward<T>(value)](const QVariant &) noexcept { return value; });
+        return recover([value = std::forward<T>(value)](const FailureT &) noexcept { return value; });
     }
 
-    template <typename Head, typename... Tail, typename Result = detail::ZipFutures_T<Future<T>, Head, Tail...>>
-    Future<Result> zip(Head head, Tail... tail) const noexcept
+    //TODO: use type sum as FailureT type instead of restriction for single FailureT
+    template <typename Head, typename... Tail,
+              typename Result = detail::FutureValuesProduct_T<Future<T, FailureT>, Head, Tail...>,
+              typename = std::enable_if_t<(std::is_same_v<FailureT, typename Head::Failure> && ...
+                                           && std::is_same_v<typename Head::Failure, typename Tail::Failure>)>>
+    Future<Result, FailureT> zip(Head head, Tail... tail) const noexcept
     {
-        return flatMap([head, tail...](const T &v) noexcept->Future<Result> {
+        return flatMap([head, tail...](const T &v) noexcept->Future<Result, FailureT> {
             return head.zip(tail...).map([v](const auto &argsResult) noexcept->Result {
                 return std::tuple_cat(detail::AsTuple<T>::make(v), argsResult);
             });
         });
     }
-    template <typename T2, typename Result = detail::ZipFutures_T<Future<T>, Future<std::decay_t<T2>>>>
-    Future<Result> zipValue(T2 &&value) const noexcept
+    template <typename T2,
+              typename Result = detail::FutureValuesProduct_T<Future<T, FailureT>, Future<std::decay_t<T2>, FailureT>>>
+    Future<Result, FailureT> zipValue(T2 &&value) const noexcept
     {
-        return zip(Future<>::successful(std::forward<T2>(value)));
+        return zip(Future<std::decay_t<T2>, FailureT>::successful(std::forward<T2>(value)));
     }
 
     static auto successful(T &&value) noexcept
     {
-        Future<std::decay_t<T>> result = Future<std::decay_t<T>>::create();
+        Future<std::decay_t<T>, FailureT> result = Future<std::decay_t<T>, FailureT>::create();
         result.fillSuccess(std::forward<T>(value));
         return result;
     }
 
-    static Future<T> successful(const T &value) noexcept
+    static Future<T, FailureT> successful(const T &value) noexcept
     {
-        Future<T> result = Future<T>::create();
+        Future<T, FailureT> result = Future<T, FailureT>::create();
         result.fillSuccess(value);
         return result;
     }
 
-    static Future<T> successful() noexcept { return Future<T>::successful(T()); }
+    static Future<T, FailureT> successful() noexcept { return Future<T, FailureT>::successful(T()); }
 
-    static Future<T> failed(const QVariant &failure) noexcept
+    static Future<T, FailureT> failed(const FailureT &failure) noexcept
     {
-        Future<T> result = Future<T>::create();
+        Future<T, FailureT> result = Future<T, FailureT>::create();
         result.fillFailure(failure);
         return result;
     }
 
     // This overload copies container to make sure that it will be reachable in future
     template <template <typename...> typename F, template <typename...> typename Container, typename... Fs,
-              typename = std::enable_if_t<std::is_same_v<F<T>, Future<T>> || std::is_same_v<F<T>, CancelableFuture<T>>>>
-    static Future<Container<T>> sequence(const Container<F<T>, Fs...> &container) noexcept
+              typename = std::enable_if_t<
+                  std::is_same_v<F<T, FailureT>,
+                                 Future<T, FailureT>> || std::is_same_v<F<T, FailureT>, CancelableFuture<T, FailureT>>>>
+    static Future<Container<T>, FailureT> sequence(const Container<F<T, FailureT>, Fs...> &container) noexcept
     {
-        Container<F<T>> copy(container);
+        Container<F<T, FailureT>> copy(container);
         return sequence(std::move(copy));
     }
 
     template <template <typename...> typename F, template <typename...> typename Container, typename... Fs,
               typename Dummy = void, typename = std::enable_if_t<std::is_copy_constructible_v<T>, Dummy>,
-              typename = std::enable_if_t<std::is_same_v<F<T>, Future<T>> || std::is_same_v<F<T>, CancelableFuture<T>>>>
-    static Future<Container<T>> sequence(Container<F<T>, Fs...> &&container) noexcept
+              typename = std::enable_if_t<
+                  std::is_same_v<F<T, FailureT>,
+                                 Future<T, FailureT>> || std::is_same_v<F<T, FailureT>, CancelableFuture<T, FailureT>>>>
+    static Future<Container<T>, FailureT> sequence(Container<F<T, FailureT>, Fs...> &&container) noexcept
     {
         if (container.empty())
-            return Future<Container<T>>::successful();
-        Future<Container<T>> future = Future<Container<T>>::create();
+            return Future<Container<T>, FailureT>::successful();
+        Future<Container<T>, FailureT> future = Future<Container<T>, FailureT>::create();
         Container<T> result;
         traverse::detail::containers::reserve(result, container.size());
         iterateSequence(std::move(container), container.cbegin(), std::move(result), future);
@@ -502,11 +498,11 @@ public:
     }
 
 private:
-    Future(const std::shared_ptr<detail::FutureData<T>> &otherD) { d = otherD; }
-    inline static Future<T> create()
+    explicit Future(const std::shared_ptr<detail::FutureData<T, FailureT>> &otherD) { d = otherD; }
+    inline static Future<T, FailureT> create()
     {
-        Future<T> result;
-        result.d = std::make_shared<detail::FutureData<T>>();
+        Future<T, FailureT> result;
+        result.d = std::make_shared<detail::FutureData<T, FailureT>>();
         return result;
     }
 
@@ -520,7 +516,7 @@ private:
     {
         assert(d);
         if (detail::hasLastFailure()) {
-            QVariant failure = detail::lastFailure();
+            FailureT failure = detail::lastFailure<FailureT>();
             detail::invalidateLastFailure();
             fillFailure(failure);
             return;
@@ -544,7 +540,13 @@ private:
         }
     }
 
-    void fillFailure(const QVariant &reason) const noexcept
+    void fillFailure(const FailureT &reason) const noexcept
+    {
+        FailureT copy(reason);
+        fillFailure(std::move(copy));
+    }
+
+    void fillFailure(FailureT &&reason) const noexcept
     {
         assert(d);
 
@@ -554,13 +556,13 @@ private:
         d->value.template emplace<2>(reason);
         d->state.store(detail::FutureState::FailedFuture, std::memory_order_release);
         const auto callbacks = std::move(d->failureCallbacks);
-        d->failureCallbacks = std::list<std::function<void(const QVariant &)>>();
+        d->failureCallbacks = std::list<std::function<void(const FailureT &)>>();
         d->successCallbacks.clear();
         lock.unlock();
 
         for (const auto &f : callbacks) {
             try {
-                f(reason);
+                f(std::get<2>(d->value));
             } catch (...) {
             }
         }
@@ -573,8 +575,8 @@ private:
 
     template <typename It, template <typename...> typename F, typename... Ts, typename... Fs,
               template <typename...> typename Container>
-    static void iterateSequence(Container<F<T>, Fs...> &&initial, It current, Container<T, Ts...> &&result,
-                                const Future<Container<T, Ts...>> &future) noexcept
+    static void iterateSequence(Container<F<T, FailureT>, Fs...> &&initial, It current, Container<T, Ts...> &&result,
+                                const Future<Container<T, Ts...>, FailureT> &future) noexcept
     {
         while (current != initial.cend()) {
             auto f = (*current);
@@ -595,13 +597,15 @@ private:
         currentFuture
             .onSuccess([initial = std::move(initial), current, result = std::move(result),
                         future](const T &) mutable noexcept {
-                Future<T>::iterateSequence(std::move(initial), current, std::move(result), future);
+                Future<T, FailureT>::iterateSequence(std::move(initial), current, std::move(result), future);
             })
-            .onFailure([future](const QVariant &reason) noexcept { future.fillFailure(reason); });
+            .onFailure([future](const FailureT &reason) noexcept { future.fillFailure(reason); });
     }
 
-    std::shared_ptr<detail::FutureData<T>> d;
+    std::shared_ptr<detail::FutureData<T, FailureT>> d;
 };
+
+int_fast64_t ASYNQRO_EXPORT instantFuturesUsage();
 
 } // namespace asynqro
 

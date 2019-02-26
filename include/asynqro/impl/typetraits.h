@@ -63,6 +63,26 @@ inline constexpr int TypeParamsCount_V = TypeParamsCount<T>::value;
 template <typename T>
 inline constexpr bool HasTypeParams_V = (TypeParamsCount_V<T>) > 0;
 
+template <typename...>
+struct InnerType;
+template <template <typename...> typename C, typename T, typename... Ts>
+struct InnerType<C<T, Ts...>>
+{
+    using type = T;
+};
+template <typename T>
+using InnerType_T = typename InnerType<T>::type;
+
+template <typename...>
+struct WithInnerType;
+template <template <typename...> typename C, typename... Ts, typename U>
+struct WithInnerType<C<Ts...>, U>
+{
+    using type = C<U>;
+};
+template <typename T, typename U>
+using WithInnerType_T = typename WithInnerType<T, U>::type;
+
 template <typename T>
 struct NestingLevel
 {

@@ -2,12 +2,14 @@
 
 #include "gtest/gtest.h"
 
-#include <QHash>
-#include <QLinkedList>
-#include <QList>
-#include <QMap>
-#include <QSet>
-#include <QVector>
+#ifdef ASYNQRO_QT_SUPPORT
+#    include <QHash>
+#    include <QLinkedList>
+#    include <QList>
+#    include <QMap>
+#    include <QSet>
+#    include <QVector>
+#endif
 
 #include <list>
 #include <map>
@@ -35,9 +37,11 @@ public:
     {
         std::vector<typename Container::key_type> result;
         for (auto it = x.cbegin(); it != x.cend(); ++it) {
+#ifdef ASYNQRO_QT_SUPPORT
             if constexpr (detail::IsSpecialization_V<Container, QMap> || detail::IsSpecialization_V<Container, QMultiMap>)
                 result.push_back(it.key());
             else
+#endif
                 result.push_back(it->first);
         }
         return result;
@@ -69,9 +73,11 @@ public:
     {
         std::vector<typename Container::key_type> result;
         for (auto it = x.cbegin(); it != x.cend(); ++it) {
+#ifdef ASYNQRO_QT_SUPPORT
             if constexpr (detail::IsSpecialization_V<Container, QHash> || detail::IsSpecialization_V<Container, QMultiHash>)
                 result.push_back(it.key());
             else
+#endif
                 result.push_back(it->first);
         }
         std::sort(result.begin(), result.end());
@@ -79,9 +85,13 @@ public:
     }
 };
 
-using SingleSocketedContainersTypes = ::testing::Types<QVector<int>, QList<int>, QLinkedList<int>, std::vector<int>,
-                                                       std::set<int>, std::multiset<int>, std::list<int>>;
-TYPED_TEST_CASE(SingleSocketedContainersTraverseTest, SingleSocketedContainersTypes);
+using SingleSocketedContainersTypes = ::testing::Types<std::vector<int>, std::set<int>, std::multiset<int>, std::list<int>
+#ifdef ASYNQRO_QT_SUPPORT
+                                                       ,
+                                                       QVector<int>, QList<int>, QLinkedList<int>
+#endif
+                                                       >;
+TYPED_TEST_SUITE(SingleSocketedContainersTraverseTest, SingleSocketedContainersTypes);
 
 TYPED_TEST(SingleSocketedContainersTraverseTest, findIf)
 {
@@ -146,9 +156,13 @@ TYPED_TEST(SingleSocketedContainersTraverseTest, filterEmpty)
     EXPECT_EQ(0, result.size());
 }
 
-using SingleSocketedUnorderedContainersTypes =
-    ::testing::Types<QSet<int>, std::unordered_set<int>, std::unordered_multiset<int>>;
-TYPED_TEST_CASE(SingleSocketedUnorderedContainersTraverseTest, SingleSocketedUnorderedContainersTypes);
+using SingleSocketedUnorderedContainersTypes = ::testing::Types<std::unordered_set<int>, std::unordered_multiset<int>
+#ifdef ASYNQRO_QT_SUPPORT
+                                                                ,
+                                                                QSet<int>
+#endif
+                                                                >;
+TYPED_TEST_SUITE(SingleSocketedUnorderedContainersTraverseTest, SingleSocketedUnorderedContainersTypes);
 
 TYPED_TEST(SingleSocketedUnorderedContainersTraverseTest, findIf)
 {
@@ -160,7 +174,7 @@ TYPED_TEST(SingleSocketedUnorderedContainersTraverseTest, findIf)
     auto equalPredicate = [](int x) -> bool { return x == 5; };
 
     result = traverse::findIf(testContainer, oddPredicate, -1);
-    ASSERT_TRUE((QSet<int>{1, 3, 5, 7, 9}).contains(result));
+    ASSERT_TRUE((std::set<int>{1, 3, 5, 7, 9}).count(result));
 
     result = traverse::findIf(testContainer, bigValuePredicate, -1);
     ASSERT_EQ(-1, result);
@@ -214,28 +228,32 @@ TYPED_TEST(SingleSocketedUnorderedContainersTraverseTest, filterEmpty)
     EXPECT_EQ(0, result.size());
 }
 
-using DoubleSocketedContainersTypes =
-    ::testing::Types<QMap<int, bool>, QMultiMap<int, bool>, std::map<int, bool>, std::multimap<int, bool>>;
-TYPED_TEST_CASE(DoubleSocketedContainersTraverseTest, DoubleSocketedContainersTypes);
+using DoubleSocketedContainersTypes = ::testing::Types<std::map<int, bool>, std::multimap<int, bool>
+#ifdef ASYNQRO_QT_SUPPORT
+                                                       ,
+                                                       QMap<int, bool>, QMultiMap<int, bool>
+#endif
+                                                       >;
+TYPED_TEST_SUITE(DoubleSocketedContainersTraverseTest, DoubleSocketedContainersTypes);
 
 TYPED_TEST(DoubleSocketedContainersTraverseTest, findIf)
 {
     typename TestFixture::Source testContainer = {{1, true},  {2, false}, {3, true},  {4, false}, {5, true},
                                                   {6, false}, {7, true},  {8, false}, {9, true}};
-    QPair<int, bool> result;
+    std::pair<int, bool> result;
 
     auto oddPredicate = [](int, bool y) -> bool { return y; };
     auto bigValuePredicate = [](int x, bool) -> bool { return x > 42; };
     auto equalPredicate = [](int x, bool) -> bool { return x == 5; };
 
-    result = traverse::findIf(testContainer, oddPredicate, qMakePair(-1, false));
+    result = traverse::findIf(testContainer, oddPredicate, std::make_pair(-1, false));
     ASSERT_EQ(1, result.first);
     ASSERT_TRUE(result.second);
 
-    result = traverse::findIf(testContainer, bigValuePredicate, qMakePair(-1, false));
+    result = traverse::findIf(testContainer, bigValuePredicate, std::make_pair(-1, false));
     EXPECT_EQ(-1, result.first);
     EXPECT_FALSE(result.second);
-    result = traverse::findIf(testContainer, bigValuePredicate, qMakePair(50, true));
+    result = traverse::findIf(testContainer, bigValuePredicate, std::make_pair(50, true));
     EXPECT_EQ(50, result.first);
     EXPECT_TRUE(result.second);
     result = traverse::findIf(testContainer, bigValuePredicate);
@@ -250,8 +268,8 @@ TYPED_TEST(DoubleSocketedContainersTraverseTest, findIf)
 TYPED_TEST(DoubleSocketedContainersTraverseTest, findIfEmpty)
 {
     typename TestFixture::Source emptyContainer;
-    QPair<int, bool> result = traverse::findIf(emptyContainer, [](int, bool y) -> bool { return y; },
-                                               qMakePair(-1, false));
+    std::pair<int, bool> result = traverse::findIf(emptyContainer, [](int, bool y) -> bool { return y; },
+                                                   std::make_pair(-1, false));
     EXPECT_EQ(-1, result.first);
     EXPECT_FALSE(result.second);
 }
@@ -292,28 +310,33 @@ TYPED_TEST(DoubleSocketedContainersTraverseTest, filterEmpty)
     EXPECT_EQ(0, result.size());
 }
 
-using DoubleSocketedUnorderedContainersTypes = ::testing::Types<
-    QHash<int, bool>, QMultiHash<int, bool>, std::unordered_map<int, bool>, std::unordered_multimap<int, bool>>;
-TYPED_TEST_CASE(DoubleSocketedUnorderedContainersTraverseTest, DoubleSocketedUnorderedContainersTypes);
+using DoubleSocketedUnorderedContainersTypes =
+    ::testing::Types<std::unordered_map<int, bool>, std::unordered_multimap<int, bool>
+#ifdef ASYNQRO_QT_SUPPORT
+                     ,
+                     QHash<int, bool>, QMultiHash<int, bool>
+#endif
+                     >;
+TYPED_TEST_SUITE(DoubleSocketedUnorderedContainersTraverseTest, DoubleSocketedUnorderedContainersTypes);
 
 TYPED_TEST(DoubleSocketedUnorderedContainersTraverseTest, findIf)
 {
     typename TestFixture::Source testContainer = {{1, true},  {2, false}, {3, true},  {4, false}, {5, true},
                                                   {6, false}, {7, true},  {8, false}, {9, true}};
-    QPair<int, bool> result;
+    std::pair<int, bool> result;
 
     auto oddPredicate = [](int, bool y) -> bool { return y; };
     auto bigValuePredicate = [](int x, bool) -> bool { return x > 42; };
     auto equalPredicate = [](int x, bool) -> bool { return x == 5; };
 
-    result = traverse::findIf(testContainer, oddPredicate, qMakePair(-1, false));
-    ASSERT_TRUE((QSet<int>{1, 3, 5, 7, 9}).contains(result.first));
+    result = traverse::findIf(testContainer, oddPredicate, std::make_pair(-1, false));
+    ASSERT_TRUE((std::set<int>{1, 3, 5, 7, 9}).count(result.first));
     ASSERT_TRUE(result.second);
 
-    result = traverse::findIf(testContainer, bigValuePredicate, qMakePair(-1, false));
+    result = traverse::findIf(testContainer, bigValuePredicate, std::make_pair(-1, false));
     EXPECT_EQ(-1, result.first);
     EXPECT_FALSE(result.second);
-    result = traverse::findIf(testContainer, bigValuePredicate, qMakePair(50, true));
+    result = traverse::findIf(testContainer, bigValuePredicate, std::make_pair(50, true));
     EXPECT_EQ(50, result.first);
     EXPECT_TRUE(result.second);
     result = traverse::findIf(testContainer, bigValuePredicate);
@@ -328,8 +351,8 @@ TYPED_TEST(DoubleSocketedUnorderedContainersTraverseTest, findIf)
 TYPED_TEST(DoubleSocketedUnorderedContainersTraverseTest, findIfEmpty)
 {
     typename TestFixture::Source emptyContainer;
-    QPair<int, bool> result = traverse::findIf(emptyContainer, [](int, bool y) -> bool { return y; },
-                                               qMakePair(-1, false));
+    std::pair<int, bool> result = traverse::findIf(emptyContainer, [](int, bool y) -> bool { return y; },
+                                                   std::make_pair(-1, false));
     EXPECT_EQ(-1, result.first);
     EXPECT_FALSE(result.second);
 }

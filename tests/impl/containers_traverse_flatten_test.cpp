@@ -2,12 +2,14 @@
 
 #include "gtest/gtest.h"
 
-#include <QHash>
-#include <QLinkedList>
-#include <QList>
-#include <QMap>
-#include <QSet>
-#include <QVector>
+#ifdef ASYNQRO_QT_SUPPORT
+#    include <QHash>
+#    include <QLinkedList>
+#    include <QList>
+#    include <QMap>
+#    include <QSet>
+#    include <QVector>
+#endif
 
 #include <list>
 #include <map>
@@ -67,17 +69,24 @@ public:
 };
 
 using ContainersTraverseFlattenTyps = ::testing::Types<
+    std::vector<std::vector<int>>, std::vector<std::set<int>>, std::vector<std::multiset<int>>,
+    std::vector<std::list<int>>, std::set<std::vector<int>>, std::set<std::set<int>>, std::set<std::multiset<int>>,
+    std::set<std::list<int>>, std::multiset<std::vector<int>>, std::multiset<std::set<int>>,
+    std::multiset<std::multiset<int>>, std::multiset<std::list<int>>, std::list<std::vector<int>>,
+    std::list<std::set<int>>, std::list<std::multiset<int>>, std::list<std::list<int>>
+#ifdef ASYNQRO_QT_SUPPORT
+    ,
     QVector<QVector<int>>, QVector<QList<int>>, QVector<std::vector<int>>, QVector<std::set<int>>,
     QVector<std::multiset<int>>, QVector<std::list<int>>, QList<QVector<int>>, QList<QList<int>>,
     QList<std::vector<int>>, QList<std::set<int>>, QList<std::multiset<int>>, QList<std::list<int>>,
-    std::vector<QVector<int>>, std::vector<QList<int>>, std::vector<std::vector<int>>, std::vector<std::set<int>>,
-    std::vector<std::multiset<int>>, std::vector<std::list<int>>, std::set<QVector<int>>, std::set<QList<int>>,
-    std::set<std::vector<int>>, std::set<std::set<int>>, std::set<std::multiset<int>>, std::set<std::list<int>>,
-    std::multiset<QVector<int>>, std::multiset<QList<int>>, std::multiset<std::vector<int>>, std::multiset<std::set<int>>,
-    std::multiset<std::multiset<int>>, std::multiset<std::list<int>>, std::list<QVector<int>>, std::list<QList<int>>,
-    std::list<std::vector<int>>, std::list<std::set<int>>, std::list<std::multiset<int>>, std::list<std::list<int>>>;
-TYPED_TEST_CASE(ContainersTraverseFlattenTest, ContainersTraverseFlattenTyps);
+    std::vector<QVector<int>>, std::vector<QList<int>>, std::set<QVector<int>>, std::set<QList<int>>,
+    std::multiset<QVector<int>>, std::multiset<QList<int>>, std::list<QVector<int>>, std::list<QList<int>>
+#endif
 
+    >;
+TYPED_TEST_SUITE(ContainersTraverseFlattenTest, ContainersTraverseFlattenTyps);
+
+#ifdef ASYNQRO_QT_SUPPORT
 TYPED_TEST(ContainersTraverseFlattenTest, flattenToQVector)
 {
     QVector<int> result = traverse::flatten(TestFixture::testContainer, QVector<int>());
@@ -102,6 +111,7 @@ TYPED_TEST(ContainersTraverseFlattenTest, flattenToQSet)
     for (size_t i = 0; i < 9; ++i)
         EXPECT_EQ(i + 1, converted[i]) << i;
 }
+#endif
 
 TYPED_TEST(ContainersTraverseFlattenTest, flattenToVector)
 {
@@ -165,13 +175,18 @@ TYPED_TEST(ContainersTraverseFlattenTest, flattenShort)
         EXPECT_EQ(i + 1, converted[i]) << i;
 }
 
-using UnorderedContainersTraverseFlattenTyps =
-    ::testing::Types<QVector<QSet<int>>, QVector<std::unordered_set<int>>, QVector<std::unordered_multiset<int>>,
-                     QList<QSet<int>>, QList<std::unordered_set<int>>, QList<std::unordered_multiset<int>>,
-                     std::vector<QSet<int>>, std::vector<std::unordered_set<int>>, std::vector<std::unordered_multiset<int>>,
-                     std::list<QSet<int>>, std::list<std::unordered_set<int>>, std::list<std::unordered_multiset<int>>>;
-TYPED_TEST_CASE(UnorderedContainersTraverseFlattenTest, UnorderedContainersTraverseFlattenTyps);
+using UnorderedContainersTraverseFlattenTyps = ::testing::Types<
+    std::vector<std::unordered_set<int>>, std::vector<std::unordered_multiset<int>>, std::list<std::unordered_set<int>>,
+    std::list<std::unordered_multiset<int>>
+#ifdef ASYNQRO_QT_SUPPORT
+    ,
+    QVector<QSet<int>>, QVector<std::unordered_set<int>>, QVector<std::unordered_multiset<int>>, QList<QSet<int>>,
+    QList<std::unordered_set<int>>, QList<std::unordered_multiset<int>>, std::vector<QSet<int>>, std::list<QSet<int>>
+#endif
+    >;
+TYPED_TEST_SUITE(UnorderedContainersTraverseFlattenTest, UnorderedContainersTraverseFlattenTyps);
 
+#ifdef ASYNQRO_QT_SUPPORT
 TYPED_TEST(UnorderedContainersTraverseFlattenTest, flattenToQVector)
 {
     QVector<int> result = traverse::flatten(TestFixture::testContainer, QVector<int>());
@@ -198,6 +213,7 @@ TYPED_TEST(UnorderedContainersTraverseFlattenTest, flattenToQSet)
     for (size_t i = 0; i < 9; ++i)
         EXPECT_EQ(i + 1, converted[i]) << i;
 }
+#endif
 
 TYPED_TEST(UnorderedContainersTraverseFlattenTest, flattenToVector)
 {
@@ -264,19 +280,19 @@ TYPED_TEST(UnorderedContainersTraverseFlattenTest, flattenShort)
 
 TEST(ContainersTraverseFlattenExtraTest, flattenShortWithBigInput)
 {
-    QVector<QVector<int>> testContainer;
+    std::vector<std::vector<int>> testContainer;
     testContainer.reserve(500);
     int last = 0;
-    for (int i = 0; i < 500; ++i) {
-        int size = i % 10;
-        QVector<int> inner;
+    for (size_t i = 0; i < 500; ++i) {
+        size_t size = i % 10;
+        std::vector<int> inner;
         inner.reserve(size);
-        for (int j = 0; j < size; ++j)
-            inner << ++last;
-        testContainer << inner;
+        for (size_t j = 0; j < size; ++j)
+            inner.push_back(++last);
+        testContainer.push_back(std::move(inner));
     }
-    QVector<int> result = traverse::flatten(testContainer);
+    std::vector<int> result = traverse::flatten(testContainer);
     ASSERT_EQ(last, result.size());
-    for (int i = 0; i < last; ++i)
+    for (size_t i = 0; i < static_cast<size_t>(last); ++i)
         EXPECT_EQ(i + 1, result[i]) << i;
 }

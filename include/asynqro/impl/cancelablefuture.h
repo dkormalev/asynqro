@@ -28,12 +28,12 @@
 #ifndef ASYNQRO_CANCELABLEFUTURE_H
 #define ASYNQRO_CANCELABLEFUTURE_H
 
-#include <QVariant>
+#include "asynqro/impl/failure_handling.h"
 
 namespace asynqro {
-template <typename... T>
+template <typename T, typename Failure>
 class Future;
-template <typename T>
+template <typename T, typename Failure>
 class Promise;
 
 template <typename... T>
@@ -50,36 +50,44 @@ public:
     CancelableFuture &operator=(CancelableFuture &&) = delete;
     ~CancelableFuture() = delete;
 
-    template <typename T>
-    static CancelableFuture<T> create(const Promise<T> &promise)
+    template <typename T, typename Failure>
+    static CancelableFuture<T, Failure> create(const Promise<T, Failure> &promise)
     {
-        return CancelableFuture<T>(promise);
+        return CancelableFuture<T, Failure>(promise);
     }
 };
 
-//Should have the same object-level public API as Future<T>
-template <typename T>
-class CancelableFuture<T>
+//Should have the same object-level public API as Future<T, Failure>
+template <typename T, typename FailureType>
+class CancelableFuture<T, FailureType>
 {
     static_assert(!std::is_same_v<T, void>,
-                  "CancelableFuture<void> is not allowed. Use CancelableFuture<bool> instead");
-    template <typename... U>
+                  "CancelableFuture<void, _> is not allowed. Use CancelableFuture<bool, _> instead");
+    static_assert(!std::is_same_v<FailureType, void>,
+                  "CancelableFuture<_, void> is not allowed. Use CancelableFuture<_, bool> instead");
+    template <typename T2, typename FailureType2>
     friend class Future;
 
 public:
     using Value = T;
-    explicit CancelableFuture(const Promise<T> &promise) { m_promise = promise; }
-    CancelableFuture(CancelableFuture &&) noexcept = default;
-    CancelableFuture(const CancelableFuture &) noexcept = default;
-    CancelableFuture &operator=(CancelableFuture &&) noexcept = default;
-    CancelableFuture &operator=(const CancelableFuture &) noexcept = default;
-    void cancel(const QVariant &failure = QStringLiteral("Canceled")) const noexcept
+    using Failure = FailureType;
+    CancelableFuture() = default;
+    explicit CancelableFuture(const Promise<T, FailureType> &promise) { m_promise = promise; }
+    CancelableFuture(CancelableFuture<T, FailureType> &&) noexcept = default;
+    CancelableFuture(const CancelableFuture<T, FailureType> &) noexcept = default;
+    CancelableFuture<T, FailureType> &operator=(CancelableFuture<T, FailureType> &&) noexcept = default;
+    CancelableFuture<T, FailureType> &operator=(const CancelableFuture<T, FailureType> &) noexcept = default;
+    ~CancelableFuture() = default;
+    void cancel(const FailureType &failure = failure::failureFromString<FailureType>("Canceled")) const noexcept
     {
         if (!m_promise.isFilled())
             m_promise.failure(failure);
     }
-    operator Future<T>() const noexcept { return m_promise.future(); }
-    Future<T> future() const noexcept { return m_promise.future(); }
+    operator Future<T, FailureType>() const noexcept // NOLINT(google-explicit-constructor)
+    {
+        return m_promise.future();
+    }
+    Future<T, FailureType> future() const noexcept { return m_promise.future(); }
 
     bool isCompleted() const noexcept { return future().isCompleted(); }
     bool isFailed() const noexcept { return future().isFailed(); }
@@ -87,22 +95,24 @@ public:
     bool isValid() const noexcept { return true; }
     bool wait(long long timeout = -1) const noexcept { return future().wait(timeout); }
     T result() const noexcept { return future().result(); }
-    QVariant failureReason() const noexcept { return future().failureReason(); }
+    FailureType failureReason() const noexcept { return future().failureReason(); }
 
     template <typename Func>
-    Future<T> onSuccess(Func &&f) const noexcept
+    auto onSuccess(Func &&f) const noexcept
     {
         return future().onSuccess(std::forward<Func>(f));
     }
 
     template <typename Func>
-    Future<T> onFailure(Func &&f) const noexcept
+    auto onFailure(Func &&f) const noexcept
     {
         return future().onFailure(std::forward<Func>(f));
     }
 
     template <typename Func>
-    Future<T> filter(Func &&f, const QVariant &rejected = QStringLiteral("Result wasn't good enough")) noexcept
+    auto
+    filter(Func &&f,
+           const FailureType &rejected = failure::failureFromString<FailureType>("Result wasn't good enough")) noexcept
     {
         return future().filter(std::forward<Func>(f), rejected);
     }
@@ -111,6 +121,12 @@ public:
     auto map(Func &&f) const noexcept
     {
         return future().map(std::forward<Func>(f));
+    }
+
+    template <typename Func>
+    auto mapFailure(Func &&f) const noexcept
+    {
+        return future().mapFailure(std::forward<Func>(f));
     }
 
     template <typename Func>
@@ -164,18 +180,18 @@ public:
     auto innerFlatten() const noexcept { return future().innerFlatten(); }
 
     template <typename Func>
-    Future<T> recover(Func &&f) const noexcept
+    auto recover(Func &&f) const noexcept
     {
         return future().recover(std::forward<Func>(f));
     }
 
     template <typename Func>
-    Future<T> recoverWith(Func &&f) const noexcept
+    auto recoverWith(Func &&f) const noexcept
     {
         return future().recoverWith(std::forward<Func>(f));
     }
 
-    Future<T> recoverValue(T &&value) const noexcept { return future().recoverValue(std::forward<T>(value)); }
+    auto recoverValue(T &&value) const noexcept { return future().recoverValue(std::forward<T>(value)); }
 
     template <typename Head, typename... Tail>
     auto zip(Head head, Tail... tail) const noexcept
@@ -191,29 +207,29 @@ public:
 private:
     auto zip() const noexcept { return future().zip(); }
 
-    Promise<T> m_promise;
+    Promise<T, FailureType> m_promise;
 };
 
-template <typename T>
-bool operator==(const CancelableFuture<T> &l, const Future<T> &r) noexcept
+template <typename T, typename Failure>
+bool operator==(const CancelableFuture<T, Failure> &l, const Future<T, Failure> &r) noexcept
 {
     return l.future() == r;
 }
 
-template <typename T>
-bool operator!=(const CancelableFuture<T> &l, const Future<T> &r) noexcept
+template <typename T, typename Failure>
+bool operator!=(const CancelableFuture<T, Failure> &l, const Future<T, Failure> &r) noexcept
 {
     return !(l == r);
 }
 
-template <typename T>
-bool operator==(const Future<T> &l, const CancelableFuture<T> &r) noexcept
+template <typename T, typename Failure>
+bool operator==(const Future<T, Failure> &l, const CancelableFuture<T, Failure> &r) noexcept
 {
     return l == r.future();
 }
 
-template <typename T>
-bool operator!=(const Future<T> &l, const CancelableFuture<T> &r) noexcept
+template <typename T, typename Failure>
+bool operator!=(const Future<T, Failure> &l, const CancelableFuture<T, Failure> &r) noexcept
 {
     return !(l == r);
 }

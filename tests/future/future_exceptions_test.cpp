@@ -5,7 +5,7 @@ class FutureExceptionsTest : public FutureBaseTest
 
 TEST_F(FutureExceptionsTest, onSuccessException)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     int result = 0;
     promise.future().onSuccess([](int) { throw std::runtime_error("Hi"); }).onSuccess([&result](int x) { result = x; });
     promise.success(42);
@@ -14,18 +14,16 @@ TEST_F(FutureExceptionsTest, onSuccessException)
 
 TEST_F(FutureExceptionsTest, onFailureException)
 {
-    Promise<int> promise;
-    QVariant result;
-    promise.future().onFailure([](QVariant) { throw std::runtime_error("Hi"); }).onFailure([&result](QVariant x) {
-        result = x;
-    });
+    TestPromise<int> promise;
+    std::string result;
+    promise.future().onFailure([](auto) { throw std::runtime_error("Hi"); }).onFailure([&result](auto x) { result = x; });
     promise.failure("failed");
-    EXPECT_EQ("failed", result.toString());
+    EXPECT_EQ("failed", result);
 }
 
 TEST_F(FutureExceptionsTest, onSuccessPostException)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     int result = 0;
     promise.success(42);
     promise.future().onSuccess([](int) { throw std::runtime_error("Hi"); }).onSuccess([&result](int x) { result = x; });
@@ -34,228 +32,250 @@ TEST_F(FutureExceptionsTest, onSuccessPostException)
 
 TEST_F(FutureExceptionsTest, onFailurePostException)
 {
-    Promise<int> promise;
-    QVariant result;
+    TestPromise<int> promise;
+    std::string result;
     promise.failure("failed");
-    promise.future().onFailure([](QVariant) { throw std::runtime_error("Hi"); }).onFailure([&result](QVariant x) {
-        result = x;
-    });
-    EXPECT_EQ("failed", result.toString());
+    promise.future().onFailure([](auto) { throw std::runtime_error("Hi"); }).onFailure([&result](auto x) { result = x; });
+    EXPECT_EQ("failed", result);
 }
 
 TEST_F(FutureExceptionsTest, mapException)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto mappedFuture = promise.future().map([](int) -> int { throw std::runtime_error("Hi"); });
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.success(42);
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught: Hi", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception: Hi", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, mapExceptionNonStd)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto mappedFuture = promise.future().map([](int) -> int { throw 42; });
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.success(42);
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception", mappedFuture.failureReason());
+}
+
+TEST_F(FutureExceptionsTest, mapFailureException)
+{
+    TestPromise<int> promise;
+    auto mappedFuture = promise.future().mapFailure([](std::string) -> std::string { throw std::runtime_error("Hi"); });
+    EXPECT_FALSE(mappedFuture.isCompleted());
+    promise.failure("42");
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_FALSE(mappedFuture.isSucceeded());
+    EXPECT_TRUE(mappedFuture.isFailed());
+    EXPECT_EQ("Exception: Hi", mappedFuture.failureReason());
+}
+
+TEST_F(FutureExceptionsTest, mapFailureExceptionNonStd)
+{
+    TestPromise<int> promise;
+    auto mappedFuture = promise.future().mapFailure([](std::string) -> std::string { throw 42; });
+    EXPECT_FALSE(mappedFuture.isCompleted());
+    promise.failure("42");
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_FALSE(mappedFuture.isSucceeded());
+    EXPECT_TRUE(mappedFuture.isFailed());
+    EXPECT_EQ("Exception", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, flatMapException)
 {
-    Promise<int> promise;
-    auto mappedFuture = promise.future().flatMap([](int) -> Future<int> { throw std::runtime_error("Hi"); });
+    TestPromise<int> promise;
+    auto mappedFuture = promise.future().flatMap([](int) -> TestFuture<int> { throw std::runtime_error("Hi"); });
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.success(42);
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught: Hi", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception: Hi", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, flatMapExceptionNonStd)
 {
-    Promise<int> promise;
-    auto mappedFuture = promise.future().flatMap([](int) -> Future<int> { throw 42; });
+    TestPromise<int> promise;
+    auto mappedFuture = promise.future().flatMap([](int) -> TestFuture<int> { throw 42; });
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.success(42);
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, andThenException)
 {
-    Promise<int> promise;
-    auto mappedFuture = promise.future().andThen([]() -> Future<int> { throw std::runtime_error("Hi"); });
+    TestPromise<int> promise;
+    auto mappedFuture = promise.future().andThen([]() -> TestFuture<int> { throw std::runtime_error("Hi"); });
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.success(42);
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught: Hi", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception: Hi", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, andThenExceptionNonStd)
 {
-    Promise<int> promise;
-    auto mappedFuture = promise.future().andThen([]() -> Future<int> { throw 42; });
+    TestPromise<int> promise;
+    auto mappedFuture = promise.future().andThen([]() -> TestFuture<int> { throw 42; });
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.success(42);
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, filterException)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto mappedFuture = promise.future().filter([](int) -> bool { throw std::runtime_error("Hi"); });
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.success(42);
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught: Hi", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception: Hi", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, filterExceptionNonStd)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto mappedFuture = promise.future().filter([](int) -> bool { throw 42; });
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.success(42);
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, innerReduceException)
 {
-    Promise<QVector<int>> promise;
+    TestPromise<std::vector<int>> promise;
     auto mappedFuture = promise.future().innerReduce([](int, int) -> int { throw std::runtime_error("Hi"); }, 0);
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.success({42});
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught: Hi", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception: Hi", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, innerReduceExceptionNonStd)
 {
-    Promise<QVector<int>> promise;
+    TestPromise<std::vector<int>> promise;
     auto mappedFuture = promise.future().innerReduce([](int, int) -> int { throw 42; }, 0);
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.success({42});
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, innerMapException)
 {
-    Promise<QVector<int>> promise;
-    auto mappedFuture = promise.future().innerMap([](int) -> int { throw std::runtime_error("Hi"); }, QVector<int>());
+    TestPromise<std::vector<int>> promise;
+    auto mappedFuture = promise.future().innerMap([](int) -> int { throw std::runtime_error("Hi"); }, std::vector<int>());
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.success({42});
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught: Hi", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception: Hi", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, innerMapExceptionNonStd)
 {
-    Promise<QVector<int>> promise;
-    auto mappedFuture = promise.future().innerMap([](int) -> int { throw 42; }, QVector<int>());
+    TestPromise<std::vector<int>> promise;
+    auto mappedFuture = promise.future().innerMap([](int) -> int { throw 42; }, std::vector<int>());
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.success({42});
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, innerMapShortException)
 {
-    Promise<QVector<int>> promise;
+    TestPromise<std::vector<int>> promise;
     auto mappedFuture = promise.future().innerMap([](int) -> int { throw std::runtime_error("Hi"); });
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.success({42});
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught: Hi", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception: Hi", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, innerMapShortExceptionNonStd)
 {
-    Promise<QVector<int>> promise;
+    TestPromise<std::vector<int>> promise;
     auto mappedFuture = promise.future().innerMap([](int) -> int { throw 42; });
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.success({42});
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, recoverException)
 {
-    Promise<int> promise;
-    auto mappedFuture = promise.future().recover([](const QVariant &) -> int { throw std::runtime_error("Hi"); });
+    TestPromise<int> promise;
+    auto mappedFuture = promise.future().recover([](const auto &) -> int { throw std::runtime_error("Hi"); });
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.failure("failed");
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught: Hi", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception: Hi", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, recoverExceptionNonStd)
 {
-    Promise<int> promise;
-    auto mappedFuture = promise.future().recover([](const QVariant &) -> int { throw 42; });
+    TestPromise<int> promise;
+    auto mappedFuture = promise.future().recover([](const auto &) -> int { throw 42; });
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.failure("failed");
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, recoverWithException)
 {
-    Promise<int> promise;
+    TestPromise<int> promise;
     auto mappedFuture = promise.future().recoverWith(
-        [](const QVariant &) -> Future<int> { throw std::runtime_error("Hi"); });
+        [](const auto &) -> TestFuture<int> { throw std::runtime_error("Hi"); });
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.failure("failed");
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught: Hi", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception: Hi", mappedFuture.failureReason());
 }
 
 TEST_F(FutureExceptionsTest, recoverWithExceptionNonStd)
 {
-    Promise<int> promise;
-    auto mappedFuture = promise.future().recoverWith([](const QVariant &) -> Future<int> { throw 42; });
+    TestPromise<int> promise;
+    auto mappedFuture = promise.future().recoverWith([](const auto &) -> TestFuture<int> { throw 42; });
     EXPECT_FALSE(mappedFuture.isCompleted());
     promise.failure("failed");
     ASSERT_TRUE(mappedFuture.isCompleted());
     EXPECT_FALSE(mappedFuture.isSucceeded());
     EXPECT_TRUE(mappedFuture.isFailed());
-    EXPECT_EQ("Exception caught", mappedFuture.failureReason().toString());
+    EXPECT_EQ("Exception", mappedFuture.failureReason());
 }

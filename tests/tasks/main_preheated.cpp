@@ -2,7 +2,9 @@
 
 #include "gtest/gtest.h"
 
-#include <QDebug>
+#ifdef ASYNQRO_QT_SUPPORT
+#    include <QDebug>
+#endif
 
 #if (defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)) || defined(Q_OS_MAC)
 #    include <ctime>

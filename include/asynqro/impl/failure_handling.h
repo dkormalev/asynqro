@@ -30,47 +30,89 @@
 
 #include "asynqro/impl/asynqro_export.h"
 
-#include <QVariant>
+#include <any>
+#include <string>
 
 namespace asynqro {
-namespace detail {
-bool ASYNQRO_EXPORT hasLastFailure() noexcept;
-QVariant ASYNQRO_EXPORT lastFailure() noexcept;
-void ASYNQRO_EXPORT invalidateLastFailure() noexcept;
-void ASYNQRO_EXPORT setLastFailure(const QVariant &failure) noexcept;
+namespace failure {
+template <typename Failure>
+inline Failure failureFromString(const std::string &s);
 
-inline QVariant exceptionFailure(const std::exception &e)
+template <>
+inline std::string failureFromString<std::string>(const std::string &s)
 {
-    return QStringLiteral("Exception caught: %1").arg(e.what());
+    return s;
 }
-inline QVariant exceptionFailure()
+} // namespace failure
+
+namespace detail {
+ASYNQRO_EXPORT bool hasLastFailure() noexcept;
+ASYNQRO_EXPORT void invalidateLastFailure() noexcept;
+ASYNQRO_EXPORT const std::any &lastFailureAny() noexcept;
+ASYNQRO_EXPORT void setLastFailureAny(const std::any &failure) noexcept;
+
+template <typename Failure>
+inline Failure lastFailure() noexcept
 {
-    return QStringLiteral("Exception caught");
+    if (!hasLastFailure())
+        return Failure();
+    try {
+        return std::any_cast<Failure>(lastFailureAny());
+    } catch (...) {
+        return Failure();
+    }
+}
+
+template <typename Failure>
+inline void setLastFailure(const Failure &failure) noexcept
+{
+    setLastFailureAny(std::any(failure));
+}
+
+template <typename Failure>
+Failure exceptionFailure(const std::exception &e)
+{
+    return failure::failureFromString<Failure>(std::string("Exception: ") + e.what());
+}
+
+template <typename Failure>
+Failure exceptionFailure()
+{
+    return failure::failureFromString<Failure>("Exception");
 }
 } // namespace detail
 
-template <typename... T>
+template <typename T, typename Failure>
 class Future;
 
+template <typename Failure>
 struct WithFailure
 {
-    explicit WithFailure(const QVariant &f = QVariant()) noexcept { m_failure = f.isValid() ? f : QVariant(false); }
-    template <typename T>
-    operator T() noexcept
+    explicit WithFailure(const Failure &f = Failure()) noexcept { m_failure = f; }
+    explicit WithFailure(Failure &&f) noexcept { m_failure = std::move(f); }
+    template <typename... Args>
+    explicit WithFailure(Args &&... args) noexcept
     {
-        detail::setLastFailure(m_failure);
+        m_failure = Failure(std::forward<Args>(args)...);
+    }
+
+    template <typename T>
+    operator T() noexcept // NOLINT(google-explicit-constructor)
+    {
+        detail::setLastFailure(std::move(m_failure));
         return T();
     }
+
     template <typename T>
-    operator Future<T>() noexcept
+    operator Future<T, Failure>() noexcept // NOLINT(google-explicit-constructor)
     {
-        Future<T> result = Future<T>::create();
-        result.fillFailure(m_failure);
+        Future<T, Failure> result = Future<T, Failure>::create();
+        result.fillFailure(std::move(m_failure));
         return result;
     }
 
 private:
-    QVariant m_failure;
+    Failure m_failure;
 };
 
 } // namespace asynqro

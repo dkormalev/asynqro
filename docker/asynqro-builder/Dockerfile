@@ -1,10 +1,11 @@
 FROM ubuntu:rolling
 
 COPY build.sh /build.sh
+COPY build_noqt.sh /build_noqt.sh
 COPY codecov.sh /codecov.sh
 
 # Switch to system lcov when 1.14 will be released
-RUN chmod +x /build.sh && chmod +x /codecov.sh \
+RUN chmod +x /build.sh && chmod +x /codecov.sh && chmod +x /build_noqt.sh \
     && apt-get -qq update \
     && apt-get -qq install -y --no-install-recommends wget ca-certificates cmake make git clang gcc g++ lcov qtbase5-dev \
     && apt-get -qq remove -y lcov \
