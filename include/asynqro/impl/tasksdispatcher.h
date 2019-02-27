@@ -77,7 +77,7 @@ class Worker;
 class ASYNQRO_EXPORT TasksDispatcher
 {
 public:
-    static TasksDispatcher *instance();
+    static TasksDispatcher *instance() noexcept;
     TasksDispatcher(const TasksDispatcher &) = delete;
     TasksDispatcher(const TasksDispatcher &&) = delete;
     TasksDispatcher &operator=(const TasksDispatcher &) = delete;

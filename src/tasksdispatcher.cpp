@@ -56,10 +56,10 @@ public:
     void taskFinished(int32_t workerId, const TaskInfo &task, bool askingForNext);
 
 private:
-    void schedule(int32_t workerId = -1);
+    void schedule(int32_t workerId = -1) noexcept;
     // All private methods below should always be called under mainLock
-    bool createNewWorkerIfPossible();
-    bool scheduleSingleTask(const TaskInfo &task, int32_t workerId);
+    bool createNewWorkerIfPossible() noexcept;
+    bool scheduleSingleTask(const TaskInfo &task, int32_t workerId) noexcept;
 
     int32_t customTagCapacity(int32_t tag) const;
 
@@ -98,7 +98,7 @@ public:
 
     void start();
 
-    void addTask(TaskInfo &&task);
+    void addTask(TaskInfo &&task) noexcept;
     void poisonPill();
 
 protected:
@@ -132,7 +132,7 @@ TasksDispatcher::~TasksDispatcher()
     d_ptr->allWorkers.clear();
 }
 
-TasksDispatcher *TasksDispatcher::instance()
+TasksDispatcher *TasksDispatcher::instance() noexcept
 {
     static TasksDispatcher tasksDispatcher;
     return &tasksDispatcher;
@@ -246,7 +246,15 @@ void TasksDispatcher::insertTaskInfo(std::function<void()> &&wrappedTask, TaskTy
         }
     }
 
-    d_ptr->tasksQueue.insert(std::move(taskInfo));
+    try {
+        d_ptr->tasksQueue.insert(std::move(taskInfo));
+    } catch (...) {
+        try {
+            taskInfo.task();
+        } catch (...) {
+        }
+        return;
+    }
     if (!d_ptr->availableWorkers.empty() || static_cast<int32_t>(d_ptr->allWorkers.size()) < capacity()) {
         if (type == TaskType::Intensive && d_ptr->subPoolsUsage[INTENSIVE_SUBPOOL] >= INTENSIVE_CAPACITY)
             return;
@@ -277,7 +285,7 @@ void TasksDispatcherPrivate::taskFinished(int32_t workerId, const TaskInfo &task
     }
 }
 
-void TasksDispatcherPrivate::schedule(int32_t workerId)
+void TasksDispatcherPrivate::schedule(int32_t workerId) noexcept
 {
     detail::SpinLockHolder lock(&mainLock, poisoningStarted);
     if (!lock.locked())
@@ -346,20 +354,29 @@ void TasksDispatcherPrivate::schedule(int32_t workerId)
     }
 }
 
-bool TasksDispatcherPrivate::createNewWorkerIfPossible()
+bool TasksDispatcherPrivate::createNewWorkerIfPossible() noexcept
 {
     int32_t newWorkerId = static_cast<int32_t>(allWorkers.size());
     if (newWorkerId < capacity) {
-        availableWorkers.insert(newWorkerId);
+        try {
+            availableWorkers.insert(newWorkerId);
+        } catch (...) {
+            return false;
+        }
         auto worker = new Worker(newWorkerId);
-        allWorkers.push_back(worker);
+        try {
+            allWorkers.push_back(worker);
+        } catch (...) {
+            delete worker;
+            return false;
+        }
         worker->start();
         return true;
     }
     return false;
 }
 
-bool TasksDispatcherPrivate::scheduleSingleTask(const TaskInfo &task, int32_t workerId)
+bool TasksDispatcherPrivate::scheduleSingleTask(const TaskInfo &task, int32_t workerId) noexcept
 {
     if (workerId < 0 || task.type == TaskType::ThreadBound)
         return false;
@@ -414,16 +431,18 @@ void Worker::start()
     std::swap(myself, t);
 }
 
-void Worker::addTask(TaskInfo &&task)
+void Worker::addTask(TaskInfo &&task) noexcept
 {
-    tasksLock.lock();
-    bool wasEmpty = workerTasks.empty();
-    workerTasks.insert(std::move(task));
-    if (wasEmpty) {
-        std::lock_guard lock(waitingLock);
-        waiter.notify_all();
+    try {
+        detail::SpinLockHolder lock(&tasksLock);
+        bool wasEmpty = workerTasks.empty();
+        workerTasks.insert(std::move(task));
+        if (wasEmpty) {
+            std::lock_guard lock(waitingLock);
+            waiter.notify_all();
+        }
+    } catch (...) {
     }
-    tasksLock.unlock();
     TasksDispatcher::instance()->d_ptr->instantUsage.fetch_add(1, std::memory_order_relaxed);
 }
 

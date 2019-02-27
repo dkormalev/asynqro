@@ -39,14 +39,14 @@ public:
     SpinLock &operator=(SpinLock &&) = delete;
     ~SpinLock() = default;
 
-    inline void lock()
+    inline void lock() noexcept
     {
         using namespace std::chrono_literals;
         while (!tryLock())
             std::this_thread::sleep_for(1ms);
     }
 
-    inline bool tryLock()
+    inline bool tryLock() noexcept
     {
         bool result = !m_lock.test_and_set(std::memory_order_acq_rel);
         for (size_t i = 0; !result && i < 1024; ++i)
@@ -55,7 +55,7 @@ public:
         return result;
     }
 
-    inline void unlock() { m_lock.clear(std::memory_order_release); }
+    inline void unlock() noexcept { m_lock.clear(std::memory_order_release); }
 
 private:
     std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
@@ -90,9 +90,9 @@ public:
     SpinLockHolder &operator=(SpinLockHolder &&) = delete;
     ~SpinLockHolder() { unlock(); }
 
-    inline bool locked() { return m_lock; }
+    inline bool locked() noexcept { return m_lock; }
 
-    inline void unlock()
+    inline void unlock() noexcept
     {
         if (m_lock)
             m_lock->unlock();
