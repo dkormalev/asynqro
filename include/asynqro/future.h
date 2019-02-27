@@ -195,10 +195,16 @@ public:
         assert(d);
         if (!isCompleted())
             wait();
-        return isSucceeded() ? std::get<1>(d->value) : T();
+        if (isSucceeded()) {
+            try {
+                return std::get<1>(d->value);
+            } catch (...) {
+            }
+        }
+        return T();
     }
 
-    const T &resultRef() const noexcept
+    const T &resultRef() const
     {
         assert(d);
         if (!isCompleted())
@@ -211,7 +217,13 @@ public:
         assert(d);
         if (!isCompleted())
             wait();
-        return isFailed() ? std::get<2>(d->value) : FailureT();
+        if (isFailed()) {
+            try {
+                return std::get<2>(d->value);
+            } catch (...) {
+            }
+        }
+        return FailureT();
     }
 
     template <typename Func, typename = std::enable_if_t<std::is_invocable_v<Func, T>>>
@@ -508,7 +520,7 @@ private:
 
     void fillSuccess(const T &result) const noexcept
     {
-        T copy(result);
+        T copy = result;
         fillSuccess(std::move(copy));
     }
 
@@ -518,14 +530,18 @@ private:
         if (detail::hasLastFailure()) {
             FailureT failure = detail::lastFailure<FailureT>();
             detail::invalidateLastFailure();
-            fillFailure(failure);
+            fillFailure(std::move(failure));
             return;
         }
 
         detail::SpinLockHolder lock(&d->mainLock);
         if (isCompleted())
             return;
-        d->value.template emplace<1>(std::forward<T>(result));
+        try {
+            d->value.template emplace<1>(std::forward<T>(result));
+        } catch (...) {
+            // Should never happen
+        }
         d->state.store(detail::FutureState::SucceededFuture, std::memory_order_release);
         const auto callbacks = std::move(d->successCallbacks);
         d->successCallbacks = std::list<std::function<void(const T &)>>();
@@ -542,7 +558,7 @@ private:
 
     void fillFailure(const FailureT &reason) const noexcept
     {
-        FailureT copy(reason);
+        FailureT copy = reason;
         fillFailure(std::move(copy));
     }
 
@@ -553,7 +569,11 @@ private:
         detail::SpinLockHolder lock(&d->mainLock);
         if (isCompleted())
             return;
-        d->value.template emplace<2>(reason);
+        try {
+            d->value.template emplace<2>(std::forward<FailureT>(reason));
+        } catch (...) {
+            // Should never happen
+        }
         d->state.store(detail::FutureState::FailedFuture, std::memory_order_release);
         const auto callbacks = std::move(d->failureCallbacks);
         d->failureCallbacks = std::list<std::function<void(const FailureT &)>>();

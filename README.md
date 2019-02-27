@@ -6,16 +6,14 @@
 
 # Asynqro
 
- **THIS README IS OBSOLETE AND IS ABOUT OLDER VERSION. NEW README FOR GENERIC FAILURE TYPE IS COMING SOON**
-
-Asynqro is a small library with purpose to make C++/Qt programming easier by giving developers rich  monadic Future API (mostly inspired by Future API in Scala language). This library is another implementation of ideas in https://github.com/opensoft/proofseed, but has much cleaner API, refined task scheduling logic and is not tied to any framework.
+Asynqro is a small library with purpose to make C++ programming easier by giving developers rich monadic Future API (mostly inspired by Future API in Scala language). This library is another implementation of ideas in https://github.com/opensoft/proofseed (now moved to asynqro usage, for historic purposes check tags before 02/25/19), but has much cleaner API, refined task scheduling logic and is not tied to any framework.
 
 ### Dependencies
 - **C++17**: tested with Clang7 (travis), GCC8 (travis) and MSVC17 (appveyor)
-- **Qt5** `>= 5.10` (technically even something like 5.6 will work, but some tests use `QThread::create` from 5.10)
 - **CMake** `>= 3.12.0`
 - **GoogleTest**. Will be automatically downloaded during cmake phase
 - **lcov**. 1.13 from github or 1.13-4 from debian is not enough. Should contain [1e0df57](https://github.com/linux-test-project/lcov/commit/1e0df571198229b4701100ce5f596cf1658ede4b) commit. Used for code coverage calculation, not needed for regular build
+- **Qt5** `>= 5.6`. It is not required though and by default asynqro is built without Qt support. There is no Qt dependency in library itself, but enabling it brings support for Qt containers and `Future::wait()` becomes guithread-aware.
 
 Asynqro has two main parts:
 - Future/Promise
@@ -27,7 +25,7 @@ There are already a lot of implementations of Future mechanism in C++:
 - `boost::future` - almost the same as `std::future`.
 - `QFuture` - Mostly unusable outside of QtConcurrent without Qt private headers because there is no way to fill it from user code.
 - `Folly` - Folly futures are also inspired by Scala ones (but different ones, from Twitter framework) and have good API but are a part of huge framework which is too hard to use partially.
-- `ProofSeed` - this one is also a part of rather big framework and mostly unusable outside of it due to reasons like non-portable Failure type.
+- `ProofSeed` - this one is also a part of rather big framework and mostly unusable outside of it due to reasons like non-portable Failure type. Now is ported to asynqro usage.
 - Many others not mentioned here
 
 So why not to create another one?
@@ -43,7 +41,9 @@ All higher-order methods are exception-safe. If any exception happens inside fun
 
 It is possible to use Future with movable-only classes (except `sequence()`). In this case `resultRef()` should be used instead of `result()`.
 
-Asynqro is intended to be used by including `asynqro/asynqro` header that includes `asynqro/future.h` and `asynqro/tasks.h`. It is also possible to include only `asynqro/futures.h` if task scheduling is not needed. All other headers except these three are considered as implementation and should not be included directly.
+Asynqro is intended to be used by including `asynqro/asynqro` header that includes `asynqro/future.h` and `asynqro/tasks.h`. It is also possible to include only `asynqro/futures.h` if task scheduling is not needed. `simplefuture.h` provides simple wrapper with std::any as failure type. All other headers except these three are considered as implementation and should not be included directly.
+
+Good example of customizing Future to specific needs can be found in https://github.com/opensoft/proofseed/blob/develop/include/proofseed/asynqro_extra.h .
 
 ### Promise
 There is not a lot of methods in this class and its main usage is to generate Future object which later will be filled by this Promise at most one time. All subsequent fills will be ignored.
@@ -51,32 +51,33 @@ There is not a lot of methods in this class and its main usage is to generate Fu
 ### Future
 This class shouldn't be instantiated directly in users code, but rather is obtained either from Promise or from tasks scheduling part. Also new Future object is returned from all transformation Future methods. It complies with functor and monad laws from FP and provides all operators required by them (`successful`/`failed`, `map`, `flatMap`).
 
-Future is also sort of right-biased EitherT with result type as right side and `QVariant` as left value (to provide failure reason).
+Future is also sort of left-biased EitherT with result type as left side and failure type as right value (to provide failure reason). Sides were chosen non-canonical way (typical Either usually has right side as result and left as error) for compatibility purposes: std::expected type in C++ is sided the same way.
 
 Almost all Future methods returns Future object, so they can be effectively chained. Futures are almost immutable. *Almost* because they will change there state at most one time when they are filled. Adding callbacks doesn't change behavior of other already applied callbacks (i.e. it will not change state of Future and/or its value).
 
 if higher-order method is called on already filled Future it will be called (in case of matching status) immediately in the same thread. If it is not yet filled, it will be put to queue, which will be called (in non-specified order) on Future filling in thread that filled the Future.
 
 #### Future API
-- `successful` - `T->Future<T>` creates new Future object filled as successful with provided value
-- `failed` - `QVariant->Future<T>` creates new Future object filled as failed with provided reason
+- `successful` - `T->Future<T, FailureType>` creates new Future object filled as successful with provided value
+- `failed` - `FailureType->Future<T, FailureType>` creates new Future object filled as failed with provided reason
 - `wait` - waits for Future to be filled (either as successful or as failed) if it is not yet filled with optional timeout
 - `isCompleted`/`isFailed`/`isSucceeded` - returns current state of Future
 - `result`/`resultRef`/`failureReason` - returns result of Future or failure reason. Will wait for Future to be filled if it isn't already.
-- `onSuccess` - `(T->void)->Future<T>` adds a callback for successful case.
-- `onFailure` - `(QVariant->void)->Future<T>` adds a callback for failure case.
-- `filter` - `(T->bool, QVariant)->Future<T>` fails Future if function returns false for filled value.
-- `map` - `(T->U)->Future<U>` transforms Future inner type.
-- `flatMap` - `(T->Future<U>)->Future<U>` transforms Future inner type.
-- `andThen` - `(void->Future<U>)->Future<U>` shortcut for flatMap if value of previous Future doesn't matter.
-- `andThenValue` - `U->Future<U>` shortcut for andThen if all we need is to replace value of successful Future with some already known value.
+- `onSuccess` - `(T->void)->Future<T, FailureType>` adds a callback for successful case.
+- `onFailure` - `(FailureType->void)->Future<T, FailureType>` adds a callback for failure case.
+- `filter` - `(T->bool, FailureType)->Future<T, FailureType>` fails Future if function returns false for filled value.
+- `map` - `(T->U)->Future<U, FailureType>` transforms Future inner type.
+- `mapFailure` - `(FailureType->OtherFailureType)->Future<T, OtherFailureType>` transforms Future failure type.
+- `flatMap` - `(T->Future<U, FailureType>)->Future<U, FailureType>` transforms Future inner type.
+- `andThen` - `(void->Future<U, FailureType>)->Future<U, FailureType>` shortcut for flatMap if value of previous Future doesn't matter.
+- `andThenValue` - `U->Future<U, FailureType>` shortcut for andThen if all we need is to replace value of successful Future with some already known value.
 - `innerReduce`/`innerMap`/`innerFilter`/`innerFlatten` - applicable only for Future with sequence inner type. Allows to modify sequence by reducing, mapping, filtering or flattening it.
-- `recover` - `(QVariant->T)->Future<T>` transform failed Future to successful
-- `recoverWith` - `(QVariant->Future<T>)->Future<T>` the same as recover, but allows to return Future in callback
-- `recoverValue` - `T->Future<T>` shortcut for recover when we just need to replace with some already known value
-- `zip` - `(Future<U>, ...) -> Future<std::tuple<T, U, ...>>` combines values from different Futures. If any of the Futures already have tuple as inner type, then U will be list of types from this std::tuple (so resulting tuple will be a flattened one).
-- `zipValue` - `U->Future<std::tuple<T, U>>` - shortcut for zip
-- `sequence` - `Sequence<Future<T>> -> Future<Sequence<T>>` transformation from sequence of Futures to single Future.
+- `recover` - `(FailureType->T)->Future<T, FailureType>` transform failed Future to successful
+- `recoverWith` - `(FailureType->Future<T, FailureType>)->Future<T, FailureType>` the same as recover, but allows to return Future in callback
+- `recoverValue` - `T->Future<T, FailureType>` shortcut for recover when we just need to replace with some already known value
+- `zip` - `(Future<U, FailureType>, ...) -> Future<std::tuple<T, U, ...>, FailureType>` combines values from different Futures. If any of the Futures already have tuple as inner type, then U will be list of types from this std::tuple (so resulting tuple will be a flattened one). Zipping futures with different failure types is not available yet.
+- `zipValue` - `U->Future<std::tuple<T, U>, FailureType>` - shortcut for zip with already known value.
+- `sequence` - `Sequence<Future<T, FailureType>> -> Future<Sequence<T>, FailureType>` transformation from sequence of Futures to single Future.
 
 ### CancelableFuture
 API of this class is the same as Future API plus `cancel` method, that immediately fills this Future. CancelableFuture can be created only from Promise so it is up to providing side to decide if return value should be cancelable or not. Returning CancelableFuture however doesn't bind to follow cancelation as order, it can be considered as a hint. For example, Network API can return CancelableFuture and cancelation will be provided only for requests that are still in queue.
@@ -88,24 +89,25 @@ All CancelableFuture methods return simple Future to prevent possible cancelatio
 ### WithFailure
 It is possible to fail any transformation by using `WithFailure` helper struct.
 ```cpp
-Future<int> f = /*...*/;
+Future<int, std::string> f = /*...*/;
 f.flatMap([](int x) -> Future<int> {
   if (shouldNotPass(x))
-    return WithFailure("You shall not pass!");
+    return WithFailure<std::string>("You shall not pass!");
   else
     return asyncCalculation(x);
 })
 .map([](int x) -> int {
   if (mayItPass(x))
     return 42;
-  return WithFailure("You shall not pass!");
+  return WithFailure<std::string>("You shall not pass!");
 })
-.recover([](const QVariant &reason) -> int {
-  if (reason.toInt())
-    return reason.toInt();
-  return WithFailure("You shall not pass, I said.");
+.recover([](const std::string &reason) -> int {
+  if (reason.empty())
+    return -1;
+  return WithFailure<std::string>("You shall not pass, I said.");
 });
 ```
+This structure **SHOULD NOT** be saved anyhow and should be used only as a helper to return failure. Implicit casting operator will move from stored failure.
 
 ## Tasks scheduling
 The same as with futures, there are lots of implementations of task scheduling:
@@ -119,7 +121,7 @@ Asynqro's task scheduling provides next functionality:
 - **Priorities**. Tasks can be prioritized or de-prioritized to control when they should be executed
 - **Subpools**. By default all tasks are running in subpool named `Intensive`, it is non-configurable and depends on number of cores in current system. It is, however, only a subpool of whole threads pool available in asynqro and it is possible to create `Custom` subpools with specified size to schedule other tasks (like IO or other mostly waiting operations).
 - **Thread binding**. It is possible to assign subset of jobs to specific thread so they could use some shared resource that is not thread-safe (like QSqlDatabase for example).
-- **Future as return type**. by default task scheduling returns CancelableFuture object that can be used for further work on task result. It also provides ability to cancel task if it is not yet started.
+- **Future as return type**. by default task scheduling returns CancelableFuture object that can be used for further work on task result. It also provides ability to cancel task if it is not yet started. It is also possible to specify what failure type should be in this Future by passing TaskRunner specialization to `run` (example can be found in https://github.com/opensoft/proofseed/blob/develop/include/proofseed/asynqro_extra.h .
 - **Sequence scheduling**. Asynqro allows to run the same task on sequence of data in specified subpool.
 - **Clustering**. Similar to sequence scheduling, but doesn't run each task in new thread. Instead of that divides sequence in clusters and iterates through each cluster in its own thread.
 - **Task continuation**. It is possible to return `Future<T>` from task. It will still give `Future<T>` as scheduling result but will fulfill it only when inner Future is filled (without keeping thread occupied of course).
@@ -138,6 +140,8 @@ Tests were run few times for each solution on i7 with 4 cores+HT. Smallest one w
 Intensive and ThreadBound mean what type of scheduling was used in this suite. In ThreadBound tasks were assigned to amount of cores not bigger than number of logic cores. All asynqro benchmarks in this section use `runAndForget` function because we don't really need resulting Future. For Future usage overhead please see **Futures usage overhead** section below.
 
 These benchmarks are synthetical and it is not an easy thing to properly benchmark such thing as task scheduling especially due to non-exclusive owning of CPU, non-deterministic nature of spinlocks and other stuff, but at least it can be used to say with some approximation how big overhead is gonna be under different amount of load.
+
+Benchmarks listed above were collected with 0.1.0 version (QVariant-based one), but numbers are pretty the same for current generic version (probably a bit better for futures usage if some small failure types are used).
 
 ### empty-avalanche
 Big for loop that sends a lot of tasks without any payload (except filling current time of execution) to thread pool. It produces only one result - how many time it took to go through whole list.
@@ -275,7 +279,7 @@ Future<bool> Worker::fetchData(QString username, QString password)
       result.reserve(bookIds.count());
       for (const QString &id : bookIds)
         result << api->fetchBook(id);
-      return Future<>::sequence(result);
+      return Future<Book>::sequence(result);
     })
     .map([this](const QVector<Book> &books) { return Book::qmled(books); })
     .onSuccess([this](const QVariantList &books) { emit loanedBooksFetched(books); });

@@ -155,7 +155,7 @@ struct TaskRunner
                 }
             };
             TasksDispatcher::instance()->insertTaskInfo(std::move(f), type, tag, priority);
-        } else if constexpr (detail::IsSpecialization_V<RawResult, Future>) {
+        } else if constexpr (detail::IsSpecialization_V<RawResult, Future>) { // NOLINT(readability-misleading-indentation)
             // !TaskRunnerDescriptor::deferredFailureShouldBeConverted
             std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept
             {
@@ -173,7 +173,7 @@ struct TaskRunner
                 }
             };
             TasksDispatcher::instance()->insertTaskInfo(std::move(f), type, tag, priority);
-        } else if constexpr (std::is_same_v<RawResult, void>) {
+        } else if constexpr (std::is_same_v<RawResult, void>) { // NOLINT(readability-misleading-indentation)
             std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept
             {
                 if (promise.isFilled())
@@ -189,7 +189,7 @@ struct TaskRunner
                 }
             };
             TasksDispatcher::instance()->insertTaskInfo(std::move(f), type, tag, priority);
-        } else {
+        } else { // NOLINT(readability-misleading-indentation)
             std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept
             {
                 if (promise.isFilled())
