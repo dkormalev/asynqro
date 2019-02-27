@@ -232,10 +232,17 @@ public:
         assert(d);
         bool callIt = false;
         detail::SpinLockHolder lock(&d->mainLock);
-        if (isCompleted())
+        if (isCompleted()) {
             callIt = isSucceeded();
-        else
-            d->successCallbacks.emplace_back(std::forward<Func>(f));
+        } else {
+            try {
+                d->successCallbacks.emplace_back(std::forward<Func>(f));
+            } catch (const std::exception &e) {
+                return Future<T, FailureT>::failed(detail::exceptionFailure<FailureT>(e));
+            } catch (...) {
+                return Future<T, FailureT>::failed(detail::exceptionFailure<FailureT>());
+            }
+        }
         lock.unlock();
 
         if (callIt) {
@@ -253,10 +260,17 @@ public:
         assert(d);
         bool callIt = false;
         detail::SpinLockHolder lock(&d->mainLock);
-        if (isCompleted())
+        if (isCompleted()) {
             callIt = isFailed();
-        else
-            d->failureCallbacks.emplace_back(std::forward<Func>(f));
+        } else {
+            try {
+                d->failureCallbacks.emplace_back(std::forward<Func>(f));
+            } catch (const std::exception &e) {
+                return Future<T, FailureT>::failed(detail::exceptionFailure<FailureT>(e));
+            } catch (...) {
+                return Future<T, FailureT>::failed(detail::exceptionFailure<FailureT>());
+            }
+        }
         lock.unlock();
 
         if (callIt) {
