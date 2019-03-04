@@ -30,7 +30,7 @@ class TasksBaseTest : public FutureBaseTest
 protected:
     void TearDown() override
     {
-        auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+        auto timeout = std::chrono::high_resolution_clock::now() + 10s;
         while (std::chrono::high_resolution_clock::now() < timeout && TasksDispatcher::instance()->instantUsage() != 0)
             ;
         EXPECT_EQ(0, TasksDispatcher::instance()->instantUsage());

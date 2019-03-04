@@ -10,6 +10,8 @@
 #include <list>
 #include <vector>
 
+using namespace std::chrono_literals;
+
 template <typename, typename>
 struct InnerTypeChanger;
 template <template <typename...> typename C, typename NewType, typename... Args>
@@ -105,10 +107,44 @@ TYPED_TEST(FutureSequenceTest, sequenceNegative)
         EXPECT_FALSE(it->isCompleted()) << i;
     EXPECT_FALSE(sequencedFuture.isCompleted());
 
+    promises[TestFixture::N - 2].failure("failed");
+    for (size_t i = 0; i < TestFixture::N - 3; ++i) {
+        promises[i].success(i * 2);
+        EXPECT_FALSE(sequencedFuture.isCompleted()) << i;
+    }
+    promises[TestFixture::N - 3].success(42);
+    sequencedFuture.wait(1000);
+    ASSERT_TRUE(sequencedFuture.isCompleted());
+    EXPECT_FALSE(sequencedFuture.isSucceeded());
+    EXPECT_TRUE(sequencedFuture.isFailed());
+    EXPECT_EQ("failed", sequencedFuture.failureReason());
+    EXPECT_TRUE(sequencedFuture.result().empty());
+}
+
+TYPED_TEST(FutureSequenceTest, sequenceNegativeDeferred)
+{
+    std::vector<TestPromise<int>> promises;
+    for (int i = 0; i < TestFixture::N; ++i)
+        asynqro::traverse::detail::containers::add(promises, TestPromise<int>());
+    typename TestFixture::Source futures = traverse::map(promises, [](const auto &p) { return p.future(); },
+                                                         typename TestFixture::Source());
+    typename TestFixture::ResultFuture sequencedFuture = TestFuture<int>::sequence(futures);
+    std::atomic_bool waitingForFailing = false;
+    promises[TestFixture::N - 3].future().onSuccess([&waitingForFailing](int) { waitingForFailing = true; });
+    int i = 0;
+    for (auto it = futures.cbegin(); it != futures.cend(); ++it, ++i)
+        EXPECT_FALSE(it->isCompleted()) << i;
+    EXPECT_FALSE(sequencedFuture.isCompleted());
+
     for (size_t i = 0; i < TestFixture::N - 2; ++i) {
         promises[i].success(i * 2);
         EXPECT_FALSE(sequencedFuture.isCompleted()) << i;
     }
+    auto timeout = std::chrono::high_resolution_clock::now() + 10s;
+    while (!waitingForFailing && std::chrono::high_resolution_clock::now() < timeout)
+        ;
+    std::this_thread::sleep_for(200ms);
+    EXPECT_FALSE(sequencedFuture.isCompleted());
     promises[TestFixture::N - 2].failure("failed");
     ASSERT_TRUE(sequencedFuture.isCompleted());
     EXPECT_FALSE(sequencedFuture.isSucceeded());
@@ -166,12 +202,51 @@ TYPED_TEST(FutureMoveSequenceTest, sequenceNegative)
     typename TestFixture::ResultFuture sequencedFuture = TestFuture<int>::sequence(
         traverse::map(promises, [](const auto &p) { return p.future(); }, std::move(typename TestFixture::Source())));
 
+    promises[TestFixture::N - 2].failure("failed");
+    EXPECT_FALSE(sequencedFuture.isCompleted());
+    for (size_t i = 0; i < TestFixture::N - 3; ++i) {
+        promises[i].success(i * 2);
+        EXPECT_FALSE(sequencedFuture.isCompleted()) << i;
+    }
+    promises[TestFixture::N - 3].success(42);
+    sequencedFuture.wait(1000);
+
+    ASSERT_TRUE(sequencedFuture.isCompleted());
+    EXPECT_FALSE(sequencedFuture.isSucceeded());
+    EXPECT_TRUE(sequencedFuture.isFailed());
+    EXPECT_EQ("failed", sequencedFuture.failureReason());
+
+    EXPECT_EQ(0, TestFixture::Result::copyCounter);
+    EXPECT_EQ(0, TestFixture::Source::copyCounter);
+    EXPECT_EQ(1, TestFixture::Result::createCounter);
+    EXPECT_EQ(1, TestFixture::Source::createCounter);
+}
+
+TYPED_TEST(FutureMoveSequenceTest, sequenceNegativeDeferred)
+{
+    std::vector<TestPromise<int>> promises;
+    for (int i = 0; i < TestFixture::N; ++i)
+        asynqro::traverse::detail::containers::add(promises, TestPromise<int>());
+
+    typename TestFixture::ResultFuture sequencedFuture = TestFuture<int>::sequence(
+        traverse::map(promises, [](const auto &p) { return p.future(); }, std::move(typename TestFixture::Source())));
+
+    std::atomic_bool waitingForFailing = false;
+    promises[TestFixture::N - 3].future().onSuccess([&waitingForFailing](int) { waitingForFailing = true; });
+
     EXPECT_FALSE(sequencedFuture.isCompleted());
     for (size_t i = 0; i < TestFixture::N - 2; ++i) {
         promises[i].success(i * 2);
         EXPECT_FALSE(sequencedFuture.isCompleted()) << i;
     }
+
+    auto timeout = std::chrono::high_resolution_clock::now() + 10s;
+    while (!waitingForFailing && std::chrono::high_resolution_clock::now() < timeout)
+        ;
+    std::this_thread::sleep_for(200ms);
+    EXPECT_FALSE(sequencedFuture.isCompleted());
     promises[TestFixture::N - 2].failure("failed");
+
     ASSERT_TRUE(sequencedFuture.isCompleted());
     EXPECT_FALSE(sequencedFuture.isSucceeded());
     EXPECT_TRUE(sequencedFuture.isFailed());

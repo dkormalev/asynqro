@@ -90,7 +90,7 @@ public:
     SpinLockHolder &operator=(SpinLockHolder &&) = delete;
     ~SpinLockHolder() { unlock(); }
 
-    inline bool locked() noexcept { return m_lock; }
+    inline bool isLocked() noexcept { return m_lock; }
 
     inline void unlock() noexcept
     {

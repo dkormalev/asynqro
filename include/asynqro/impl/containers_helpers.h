@@ -106,13 +106,6 @@ auto add(C &container, const std::pair<T1, T2> &value) -> decltype(container.ins
     container.insert(value);
 }
 
-template <typename C, template <typename T1, typename T2> typename Pair, typename T1, typename T2>
-auto add(C &container, Pair<T1, T2> &&value)
-    -> decltype(container.insert(std::make_pair(value.first, value.second)), void())
-{
-    container.insert(std::make_pair(value.first, value.second));
-}
-
 template <typename C, typename T, typename = std::enable_if_t<!StlMapLike_V<C>>>
 auto add(C &container, const T &value) -> decltype(container.insert(value.key(), value.value()), void())
 {

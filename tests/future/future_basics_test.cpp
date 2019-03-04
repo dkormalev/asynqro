@@ -303,6 +303,8 @@ TEST_F(FutureBasicsTest, isValid)
 {
     TestFuture<int> invalid;
     EXPECT_FALSE(invalid.isValid());
+    TestFuture<int> invalid2 = TestFuture<int>();
+    EXPECT_FALSE(invalid2.isValid());
     TestPromise<int> promise1;
     TestFuture<int> validFromPromise = promise1.future();
     EXPECT_TRUE(validFromPromise.isValid());

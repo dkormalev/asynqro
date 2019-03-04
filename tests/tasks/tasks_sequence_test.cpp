@@ -25,7 +25,7 @@ TEST_F(TasksSequenceRunTest, intensiveSequenceRun)
                                               },
                                               TaskType::Intensive);
 
-    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+    auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)
         ;
     std::this_thread::sleep_for(25ms);
@@ -56,7 +56,7 @@ TEST_F(TasksSequenceRunTest, sequenceRun)
                                               },
                                               TaskType::Custom, 0);
 
-    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+    auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)
         ;
     std::this_thread::sleep_for(25ms);
@@ -90,7 +90,7 @@ TEST_F(TasksSequenceRunTest, deferredSequenceRun)
                                               },
                                               TaskType::Custom, 0);
 
-    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+    auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)
         ;
     std::this_thread::sleep_for(25ms);
@@ -123,7 +123,7 @@ TEST_F(TasksSequenceRunTest, voidSequenceRun)
                                   },
                                   TaskType::Custom, 0);
 
-    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+    auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)
         ;
     std::this_thread::sleep_for(25ms);
@@ -155,7 +155,7 @@ TEST_F(TasksSequenceRunTest, sequenceRunWithIndices)
                                                     },
                                                     TaskType::Custom, 0);
 
-    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+    auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)
         ;
     std::this_thread::sleep_for(25ms);
@@ -190,7 +190,7 @@ TEST_F(TasksSequenceRunTest, deferredSequenceRunWithIndices)
                                                     },
                                                     TaskType::Custom, 0);
 
-    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+    auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)
         ;
     std::this_thread::sleep_for(25ms);
@@ -223,7 +223,7 @@ TEST_F(TasksSequenceRunTest, voidSequenceRunWithIndices)
                                   },
                                   TaskType::Custom, 0);
 
-    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+    auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)
         ;
     std::this_thread::sleep_for(25ms);
@@ -270,7 +270,7 @@ TEST_F(TasksSequenceRunTest, sequenceRunWithFailure)
     EXPECT_EQ("failed", future.failureReason());
     EXPECT_EQ(0, future.result().size());
 
-    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+    auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (doneCount < n && std::chrono::high_resolution_clock::now() < timeout)
         ;
     EXPECT_EQ(n, doneCount);

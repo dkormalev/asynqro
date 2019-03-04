@@ -10,6 +10,7 @@ TEST_F(FutureCallbacksTest, onSuccess)
     int result = 0;
     TestFuture<int> futureWithCallback = future.onSuccess([&result](int x) { result = x; });
     EXPECT_EQ(future, futureWithCallback);
+    EXPECT_EQ(futureWithCallback, future);
     promise.success(42);
     EXPECT_EQ(42, result);
 }
@@ -21,6 +22,7 @@ TEST_F(FutureCallbacksTest, onFailure)
     std::string result;
     TestFuture<int> futureWithCallback = future.onFailure([&result](auto x) { result = x; });
     EXPECT_EQ(future, futureWithCallback);
+    EXPECT_EQ(futureWithCallback, future);
     promise.failure("failed");
     EXPECT_EQ("failed", result);
 }

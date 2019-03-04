@@ -43,7 +43,32 @@ TEST_F(FutureFailureTest, cancelation)
     EXPECT_EQ("Canceled", future.failureReason());
 }
 
-TEST_F(FutureFailureTest, withFailure)
+TEST_F(FutureFailureTest, withFailureCopy)
+{
+    TestPromise<int> promise;
+    TestFuture<int> future = promise.future();
+    EXPECT_FALSE(future.isCompleted());
+    std::string failure = "failed";
+    promise.success(WithTestFailure(failure));
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_FALSE(future.isSucceeded());
+    EXPECT_TRUE(future.isFailed());
+    EXPECT_EQ("failed", future.failureReason());
+}
+
+TEST_F(FutureFailureTest, withFailureMove)
+{
+    TestPromise<int> promise;
+    TestFuture<int> future = promise.future();
+    EXPECT_FALSE(future.isCompleted());
+    promise.success(WithTestFailure(std::string("failed")));
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_FALSE(future.isSucceeded());
+    EXPECT_TRUE(future.isFailed());
+    EXPECT_EQ("failed", future.failureReason());
+}
+
+TEST_F(FutureFailureTest, withFailureArgs)
 {
     TestPromise<int> promise;
     TestFuture<int> future = promise.future();

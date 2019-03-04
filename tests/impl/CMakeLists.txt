@@ -10,6 +10,7 @@ add_executable(asynqro_impl_tests
     containers_traverse_map_one_socket_test.cpp
     containers_traverse_map_two_sockets_test.cpp
     taskslist_test.cpp
+    spinlock_test.cpp
 )
 set_target_properties(asynqro_impl_tests PROPERTIES
     CXX_STANDARD 17

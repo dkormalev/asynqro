@@ -158,7 +158,7 @@ int32_t TasksDispatcher::subPoolCapacity(TaskType type, int32_t tag) const
 void TasksDispatcher::setCapacity(int32_t capacity)
 {
     detail::SpinLockHolder lock(&d_ptr->mainLock, d_ptr->poisoningStarted);
-    if (!lock.locked())
+    if (!lock.isLocked())
         return;
     capacity = std::max(INTENSIVE_CAPACITY, capacity);
     capacity = std::max(static_cast<int32_t>(d_ptr->allWorkers.size()), capacity);
@@ -174,7 +174,7 @@ void TasksDispatcher::addCustomTag(int32_t tag, int32_t capacity)
         return;
     capacity = std::clamp(capacity, 1, d_ptr->capacity);
     detail::SpinLockHolder lock(&d_ptr->mainLock, d_ptr->poisoningStarted);
-    if (!lock.locked())
+    if (!lock.isLocked())
         return;
     d_ptr->customTagCapacities[tag] = capacity;
 }
@@ -182,7 +182,7 @@ void TasksDispatcher::addCustomTag(int32_t tag, int32_t capacity)
 void TasksDispatcher::setBoundCapacity(int32_t capacity)
 {
     detail::SpinLockHolder lock(&d_ptr->mainLock, d_ptr->poisoningStarted);
-    if (!lock.locked())
+    if (!lock.isLocked())
         return;
     d_ptr->boundCapacity = std::max(static_cast<int32_t>(d_ptr->workersBindingsCount.size()), capacity);
 }
@@ -206,7 +206,7 @@ void TasksDispatcher::preHeatPool(double amount)
 {
     int32_t desiredCapacity = std::clamp(static_cast<int32_t>(std::round(amount * capacity())), 1, capacity());
     detail::SpinLockHolder lock(&d_ptr->mainLock, d_ptr->poisoningStarted);
-    if (!lock.locked())
+    if (!lock.isLocked())
         return;
     while (desiredCapacity > static_cast<int32_t>(d_ptr->allWorkers.size()))
         d_ptr->createNewWorkerIfPossible();
@@ -215,7 +215,7 @@ void TasksDispatcher::preHeatPool(double amount)
 void TasksDispatcher::preHeatIntensivePool()
 {
     detail::SpinLockHolder lock(&d_ptr->mainLock, d_ptr->poisoningStarted);
-    if (!lock.locked())
+    if (!lock.isLocked())
         return;
     while (INTENSIVE_CAPACITY > static_cast<int32_t>(d_ptr->allWorkers.size()))
         d_ptr->createNewWorkerIfPossible();
@@ -228,7 +228,7 @@ void TasksDispatcher::insertTaskInfo(std::function<void()> &&wrappedTask, TaskTy
     tag = type == TaskType::Intensive ? 0 : std::max(0, tag);
     TaskInfo taskInfo = TaskInfo(std::move(wrappedTask), type, tag, priority);
     detail::SpinLockHolder lock(&d_ptr->mainLock, d_ptr->poisoningStarted);
-    if (!lock.locked())
+    if (!lock.isLocked())
         return;
     // We keep all already known bindings in separate lists
     if (type == TaskType::ThreadBound) {
@@ -267,7 +267,7 @@ void TasksDispatcher::insertTaskInfo(std::function<void()> &&wrappedTask, TaskTy
 void TasksDispatcherPrivate::taskFinished(int32_t workerId, const TaskInfo &task, bool askingForNext)
 {
     detail::SpinLockHolder lock(&mainLock, poisoningStarted);
-    if (!lock.locked())
+    if (!lock.isLocked())
         return;
     if (task.type != TaskType::ThreadBound) {
         uint64_t poolInfo = packPoolInfo(task);
@@ -288,7 +288,7 @@ void TasksDispatcherPrivate::taskFinished(int32_t workerId, const TaskInfo &task
 void TasksDispatcherPrivate::schedule(int32_t workerId) noexcept
 {
     detail::SpinLockHolder lock(&mainLock, poisoningStarted);
-    if (!lock.locked())
+    if (!lock.isLocked())
         return;
     if (tasksQueue.empty())
         return;

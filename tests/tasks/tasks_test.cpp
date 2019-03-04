@@ -7,6 +7,25 @@ using namespace std::chrono_literals;
 class TasksTest : public TasksBaseTest
 {};
 
+struct ConvertingRunnerInfo
+{
+    using PlainFailure = int;
+    constexpr static bool deferredFailureShouldBeConverted = true;
+    template <typename DeferredFailure>
+    static PlainFailure toPlainFailure(const DeferredFailure &)
+    {
+        return 42;
+    }
+};
+
+namespace asynqro::failure {
+template <>
+inline int failureFromString<int>(const std::string &s)
+{
+    return 21;
+}
+} // namespace asynqro::failure
+
 TEST_F(TasksTest, capacities)
 {
     auto dispatcher = TasksDispatcher::instance();
@@ -68,6 +87,19 @@ TEST_F(TasksTest, singleDeferredTask)
 {
     TestPromise<int> innerPromise;
     TestFuture<int> result = run([innerPromise]() { return innerPromise.future(); });
+    EXPECT_FALSE(result.isCompleted());
+    innerPromise.success(42);
+    result.wait(10000);
+    ASSERT_TRUE(result.isCompleted());
+    EXPECT_TRUE(result.isSucceeded());
+    EXPECT_FALSE(result.isFailed());
+    EXPECT_EQ(42, result.result());
+}
+
+TEST_F(TasksTest, singleDeferredTaskWithCastedFailure)
+{
+    TestPromise<int> innerPromise;
+    Future<int, int> result = run<TaskRunner<ConvertingRunnerInfo>>([innerPromise]() { return innerPromise.future(); });
     EXPECT_FALSE(result.isCompleted());
     innerPromise.success(42);
     result.wait(10000);
@@ -218,6 +250,20 @@ TEST_F(TasksTest, singleDeferredTaskWithFailure)
     EXPECT_EQ("failed", result.failureReason());
 }
 
+TEST_F(TasksTest, singleDeferredTaskFailureWithCastedFailure)
+{
+    TestPromise<int> innerPromise;
+    Future<int, int> result = run<TaskRunner<ConvertingRunnerInfo>>([innerPromise]() { return innerPromise.future(); });
+    EXPECT_FALSE(result.isCompleted());
+    innerPromise.failure("failed");
+    result.wait(10000);
+    ASSERT_TRUE(result.isCompleted());
+    EXPECT_FALSE(result.isSucceeded());
+    EXPECT_TRUE(result.isFailed());
+    EXPECT_EQ(0, result.result());
+    EXPECT_EQ(42, result.failureReason());
+}
+
 TEST_F(TasksTest, multipleTasks)
 {
     std::atomic_bool ready{false};
@@ -258,7 +304,7 @@ TEST_F(TasksTest, multipleTasksOverCapacity)
         }));
     }
 
-    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+    auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < TasksDispatcher::instance()->capacity() && std::chrono::high_resolution_clock::now() < timeout)
         ;
     std::this_thread::sleep_for(25ms);
@@ -287,7 +333,7 @@ TEST_F(TasksTest, multipleTasksOverChangedCapacity)
             return i * 2;
         }));
     }
-    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+    auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < TasksDispatcher::instance()->capacity() && std::chrono::high_resolution_clock::now() < timeout)
         ;
     std::this_thread::sleep_for(25ms);
@@ -316,7 +362,7 @@ TEST_F(TasksTest, multipleIntensiveTasksOverCapacity)
             },
             TaskType::Intensive));
     }
-    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+    auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)
         ;
     std::this_thread::sleep_for(25ms);
@@ -353,7 +399,7 @@ TEST_F(TasksTest, multipleCustomTasksOverCapacity)
             return i * 3;
         }));
     }
-    auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(10000);
+    auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while ((runCounter < capacity || otherRunCounter < otherCapacity)
            && std::chrono::high_resolution_clock::now() < timeout)
         ;

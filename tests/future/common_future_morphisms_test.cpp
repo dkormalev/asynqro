@@ -20,6 +20,7 @@ TEST_F(FutureMorphismsTest, map)
     TestFuture<int> mappedFuture = future.map([](int x) { return x * 2; });
     EXPECT_FALSE(mappedFuture.isCompleted());
     EXPECT_NE(future, mappedFuture);
+    EXPECT_NE(mappedFuture, future);
     promise.success(42);
     EXPECT_EQ(42, future.result());
     ASSERT_TRUE(mappedFuture.isCompleted());
@@ -48,6 +49,7 @@ TEST_F(FutureMorphismsTest, mapFailure)
     TestFuture<int> mappedFuture = future.mapFailure([](std::string x) { return x + "abc"; });
     EXPECT_FALSE(mappedFuture.isCompleted());
     EXPECT_NE(future, mappedFuture);
+    EXPECT_NE(mappedFuture, future);
     promise.failure("42");
     EXPECT_EQ("42", future.failureReason());
     ASSERT_TRUE(mappedFuture.isCompleted());
