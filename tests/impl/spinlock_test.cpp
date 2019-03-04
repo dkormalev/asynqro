@@ -81,6 +81,7 @@ TEST(SpinLockTest, holderWithAbandon)
     SpinLock lock;
     std::atomic_bool done{false};
     std::atomic_bool abandon{true};
+    lock.lock();
     std::thread([&lock, &done, &abandon]() {
         SpinLockHolder holder(&lock, abandon);
         done = true;
@@ -89,7 +90,7 @@ TEST(SpinLockTest, holderWithAbandon)
     auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (!done && std::chrono::high_resolution_clock::now() < timeout)
         ;
-    EXPECT_TRUE(lock.tryLock());
+    EXPECT_FALSE(lock.tryLock());
 }
 
 TEST(SpinLockTest, holderUnlock)
