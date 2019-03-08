@@ -121,7 +121,7 @@ Asynqro's task scheduling provides next functionality:
 - **Priorities**. Tasks can be prioritized or de-prioritized to control when they should be executed
 - **Subpools**. By default all tasks are running in subpool named `Intensive`, it is non-configurable and depends on number of cores in current system. It is, however, only a subpool of whole threads pool available in asynqro and it is possible to create `Custom` subpools with specified size to schedule other tasks (like IO or other mostly waiting operations).
 - **Thread binding**. It is possible to assign subset of jobs to specific thread so they could use some shared resource that is not thread-safe (like QSqlDatabase for example).
-- **Future as return type**. by default task scheduling returns CancelableFuture object that can be used for further work on task result. It also provides ability to cancel task if it is not yet started. It is also possible to specify what failure type should be in this Future by passing TaskRunner specialization to `run` (example can be found in https://github.com/opensoft/proofseed/blob/develop/include/proofseed/asynqro_extra.h .
+- **Future as return type**. by default task scheduling returns CancelableFuture object that can be used for further work on task result. It also provides ability to cancel task if it is not yet started. It is also possible to specify what failure type should be in this Future by passing TaskRunner specialization to `run` (example can be found in https://github.com/opensoft/proofseed/blob/develop/include/proofseed/asynqro_extra.h).
 - **Sequence scheduling**. Asynqro allows to run the same task on sequence of data in specified subpool.
 - **Clustering**. Similar to sequence scheduling, but doesn't run each task in new thread. Instead of that divides sequence in clusters and iterates through each cluster in its own thread.
 - **Task continuation**. It is possible to return `Future<T>` from task. It will still give `Future<T>` as scheduling result but will fulfill it only when inner Future is filled (without keeping thread occupied of course).
@@ -271,7 +271,7 @@ We need to emit a signal loanedBooksFetched with loaned books list and suggestio
 We need to return resulting `Future<bool>` to know when everything is loaded or if any error occurred.
 
 ```cpp
-Future<bool> Worker::fetchData(QString username, QString password)
+Future<bool, MyFailure> Worker::fetchData(QString username, QString password)
 {
   return api->authenticate(username, password).flatMap([this](const User &userInfo) {
     auto taken = api->fetchTakenBooks().flatMap([this](const QVector<QString> &bookIds) {
