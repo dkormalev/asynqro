@@ -2,20 +2,31 @@ cmake_minimum_required(VERSION 3.12.0)
 project(asynqro LANGUAGES CXX VERSION 0.2.0)
 include(GenerateExportHeader)
 
+option(BUILD_SHARED_LIBS
+    "Build asynqro as shared library"
+    OFF
+)
+
 option(ASYNQRO_QT_SUPPORT
-    "Build with Qt support"
+    "Build asynqro with Qt support"
     OFF
 )
 
 option(ASYNQRO_BUILD_TESTS
-    "Build tests. Will download googletest from github during configure time and build it with tests"
-    ON
+    "Build asynqro tests. Will download googletest from github during configure time and build it with tests"
+    OFF
 )
 
 option(ASYNQRO_BUILD_WITH_GCOV
-    "Build with gcov support. Enables ASYNQRO_BUILD_TESTS"
+    "Build asynqro with gcov support. Enables ASYNQRO_BUILD_TESTS"
     OFF
 )
+
+if (BUILD_SHARED_LIBS)
+    message("-- asynqro: Building as shared library")
+else()
+    message("-- asynqro: Building as static library")
+endif()
 
 if (ASYNQRO_QT_SUPPORT)
     message("-- asynqro: Building with Qt support")
@@ -30,7 +41,7 @@ if (ASYNQRO_BUILD_WITH_GCOV)
     set(ASYNQRO_BUILD_TESTS ON)
 endif()
 
-add_library(asynqro SHARED
+add_library(asynqro
     src/future.cpp
     src/failure_handling.cpp
     src/tasksdispatcher.cpp
