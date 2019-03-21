@@ -89,7 +89,7 @@ public:
         bool operator==(const iterator &other) const
         {
             return owner == other.owner && mapIt == other.mapIt
-                   && (listIt == other.listIt || mapIt == owner->m_lists.end());
+                   && (mapIt == owner->m_lists.end() || listIt == other.listIt);
         }
         bool operator!=(const iterator &other) const { return !(*this == other); }
         TaskInfo &operator*() const
