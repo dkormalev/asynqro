@@ -28,10 +28,6 @@ else()
     message("-- asynqro: Building as static library")
 endif()
 
-if (ASYNQRO_QT_SUPPORT)
-    message("-- asynqro: Building with Qt support")
-endif()
-
 if (ASYNQRO_BUILD_WITH_GCOV)
     message("-- asynqro: Building with gcov support")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0 --coverage -fno-inline -fno-inline-small-functions -fno-default-inline -fkeep-static-functions -fno-elide-constructors -fprofile-update=atomic")
@@ -72,6 +68,14 @@ set_target_properties(asynqro PROPERTIES
     CXX_VISIBILITY_PRESET hidden
     POSITION_INDEPENDENT_CODE ON
 )
+
+if (ASYNQRO_QT_SUPPORT)
+    find_package(Qt5Core CONFIG REQUIRED)
+    target_link_libraries(asynqro INTERFACE Qt5::Core)
+    target_compile_definitions(asynqro INTERFACE ASYNQRO_QT_SUPPORT)
+    message("-- asynqro: Building with Qt support")
+endif()
+
 if(MSVC)
     target_compile_options(asynqro PUBLIC /wd4251)
 endif()

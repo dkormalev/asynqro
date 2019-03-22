@@ -523,6 +523,44 @@ public:
         return future;
     }
 
+#ifdef ASYNQRO_QT_SUPPORT
+    template <typename Signal, typename Sender>
+    static Future<T, FailureT> fromQtSignal(Sender *sender, const Signal &signal)
+    {
+        Future<T, FailureT> result = Future<T, FailureT>::create();
+        auto conn = std::make_shared<QMetaObject::Connection>();
+        auto deathConn = std::make_shared<QMetaObject::Connection>();
+        if constexpr (std::is_invocable_v<Signal, decltype(sender), T>) {
+            *conn = QObject::connect(sender, signal, sender, [result, conn, deathConn](T x) {
+                result.fillSuccess(std::forward<T>(x));
+                QObject::disconnect(*conn);
+                QObject::disconnect(*deathConn);
+            });
+        } else if constexpr (std::is_same_v<T, bool>) { // NOLINT(readability-misleading-indentation)
+            *conn = QObject::connect(sender, signal, sender, [result, conn, deathConn]() {
+                result.fillSuccess(true);
+                QObject::disconnect(*conn);
+                QObject::disconnect(*deathConn);
+            });
+        } else if constexpr (detail::IsSpecialization_V<T, std::tuple>) { // NOLINT(readability-misleading-indentation)
+            *conn = QObject::connect(sender, signal, sender, [result, conn, deathConn](auto... x) {
+                result.fillSuccess(std::make_tuple(x...));
+                QObject::disconnect(*conn);
+                QObject::disconnect(*deathConn);
+            });
+        } else { // NOLINT(readability-misleading-indentation)
+            static_assert(std::is_invocable_v<Signal, decltype(sender), T>,
+                          "Signal is not compatible with Future type");
+        }
+        *deathConn = QObject::connect(sender, &QObject::destroyed, sender, [result, conn, deathConn]() {
+            result.fillFailure(failure::failureFromString<FailureT>("Destroyed"));
+            QObject::disconnect(*conn);
+            QObject::disconnect(*deathConn);
+        });
+        return result;
+    }
+#endif
+
 private:
     explicit Future(const std::shared_ptr<detail::FutureData<T, FailureT>> &otherD) { d = otherD; }
     inline static Future<T, FailureT> create()

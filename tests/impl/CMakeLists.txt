@@ -21,9 +21,6 @@ set_target_properties(asynqro_impl_tests PROPERTIES
 target_link_libraries(asynqro_impl_tests asynqro::asynqro gtest)
 if (ASYNQRO_QT_SUPPORT)
     target_sources(asynqro_impl_tests PRIVATE containers_traverse_map_no_sockets_test.cpp)
-    find_package(Qt5Core CONFIG REQUIRED)
-    target_link_libraries(asynqro_impl_tests Qt5::Core)
-    target_compile_definitions(asynqro_impl_tests PRIVATE ASYNQRO_QT_SUPPORT)
 endif()
 
 gtest_discover_tests(asynqro_impl_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)

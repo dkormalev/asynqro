@@ -2,6 +2,16 @@
 
 #ifdef ASYNQRO_QT_SUPPORT
 #    include <QCoreApplication>
+
+class TestQObject : public QObject
+{
+    Q_OBJECT
+signals:
+    void testSignalNoParams();
+    void testSignalSingleParam(int x);
+    void testSignalMultiParams(int x, double y);
+    void testSignalTupleParam(std::tuple<int, double> x);
+};
 #endif
 
 class FutureBasicsTest : public FutureBaseTest
@@ -46,6 +56,99 @@ TEST_F(FutureBasicsTest, fail)
     EXPECT_TRUE(future.isFailed());
     EXPECT_EQ("isFailed", future.failureReason());
 }
+
+#ifdef ASYNQRO_QT_SUPPORT
+TEST_F(FutureBasicsTest, fromQtSignalEmpty)
+{
+    std::unique_ptr<TestQObject> obj(new TestQObject);
+    TestFuture<bool> f = TestFuture<bool>::fromQtSignal(obj.get(), &TestQObject::testSignalNoParams);
+    ASSERT_FALSE(f.isCompleted());
+    emit obj->testSignalNoParams();
+    ASSERT_TRUE(f.isCompleted());
+    EXPECT_TRUE(f.isSucceeded());
+    EXPECT_FALSE(f.isFailed());
+    EXPECT_TRUE(f.result());
+}
+
+TEST_F(FutureBasicsTest, fromQtSignalSingleParam)
+{
+    std::unique_ptr<TestQObject> obj(new TestQObject);
+    TestFuture<int> f = TestFuture<int>::fromQtSignal(obj.get(), &TestQObject::testSignalSingleParam);
+    ASSERT_FALSE(f.isCompleted());
+    emit obj->testSignalSingleParam(42);
+    ASSERT_TRUE(f.isCompleted());
+    EXPECT_TRUE(f.isSucceeded());
+    EXPECT_FALSE(f.isFailed());
+    EXPECT_EQ(42, f.result());
+}
+
+TEST_F(FutureBasicsTest, fromQtSignalMultiParams)
+{
+    std::unique_ptr<TestQObject> obj(new TestQObject);
+    TestFuture<std::tuple<int, double>> f =
+        TestFuture<std::tuple<int, double>>::fromQtSignal(obj.get(), &TestQObject::testSignalMultiParams);
+    ASSERT_FALSE(f.isCompleted());
+    emit obj->testSignalMultiParams(42, 5.5);
+    ASSERT_TRUE(f.isCompleted());
+    EXPECT_TRUE(f.isSucceeded());
+    EXPECT_FALSE(f.isFailed());
+    EXPECT_EQ(42, std::get<0>(f.result()));
+    EXPECT_DOUBLE_EQ(5.5, std::get<1>(f.result()));
+}
+
+TEST_F(FutureBasicsTest, fromQtSignalSingleParamTupled)
+{
+    std::unique_ptr<TestQObject> obj(new TestQObject);
+    TestFuture<std::tuple<int>> f = TestFuture<std::tuple<int>>::fromQtSignal(obj.get(),
+                                                                              &TestQObject::testSignalSingleParam);
+    ASSERT_FALSE(f.isCompleted());
+    emit obj->testSignalSingleParam(42);
+    ASSERT_TRUE(f.isCompleted());
+    EXPECT_TRUE(f.isSucceeded());
+    EXPECT_FALSE(f.isFailed());
+    EXPECT_EQ(42, std::get<0>(f.result()));
+}
+
+TEST_F(FutureBasicsTest, fromQtSignalSingleParamBooled)
+{
+    std::unique_ptr<TestQObject> obj(new TestQObject);
+    TestFuture<bool> f = TestFuture<bool>::fromQtSignal(obj.get(), &TestQObject::testSignalSingleParam);
+    ASSERT_FALSE(f.isCompleted());
+    emit obj->testSignalSingleParam(42);
+    ASSERT_TRUE(f.isCompleted());
+    EXPECT_TRUE(f.isSucceeded());
+    EXPECT_FALSE(f.isFailed());
+    EXPECT_TRUE(f.result());
+}
+
+TEST_F(FutureBasicsTest, fromQtSignalTupleParam)
+{
+    std::unique_ptr<TestQObject> obj(new TestQObject);
+    TestFuture<std::tuple<int, double>> f =
+        TestFuture<std::tuple<int, double>>::fromQtSignal(obj.get(), &TestQObject::testSignalTupleParam);
+    ASSERT_FALSE(f.isCompleted());
+    emit obj->testSignalTupleParam(std::make_tuple(42, 5.5));
+    ASSERT_TRUE(f.isCompleted());
+    EXPECT_TRUE(f.isSucceeded());
+    EXPECT_FALSE(f.isFailed());
+    EXPECT_EQ(42, std::get<0>(f.result()));
+    EXPECT_DOUBLE_EQ(5.5, std::get<1>(f.result()));
+}
+
+TEST_F(FutureBasicsTest, fromQtSignalDestroyed)
+{
+    TestFuture<bool> f;
+    {
+        std::unique_ptr<TestQObject> obj(new TestQObject);
+        f = TestFuture<bool>::fromQtSignal(obj.get(), &TestQObject::testSignalNoParams);
+        ASSERT_FALSE(f.isCompleted());
+    }
+    ASSERT_TRUE(f.isCompleted());
+    EXPECT_FALSE(f.isSucceeded());
+    EXPECT_TRUE(f.isFailed());
+    EXPECT_EQ("Destroyed", f.failureReason());
+}
+#endif
 
 TEST_F(FutureBasicsTest, success)
 {
@@ -312,3 +415,7 @@ TEST_F(FutureBasicsTest, isValid)
     TestFuture<int> validPromiseCtor(promise2);
     EXPECT_TRUE(validFromPromise.isValid());
 }
+
+#ifdef ASYNQRO_QT_SUPPORT
+#    include "future_basics_test.moc"
+#endif

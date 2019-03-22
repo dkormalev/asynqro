@@ -41,14 +41,3 @@ set_target_properties(asynqro_tasks_preheated_intensive_tests PROPERTIES
 )
 target_link_libraries(asynqro_tasks_preheated_intensive_tests asynqro::asynqro gtest)
 gtest_discover_tests(asynqro_tasks_preheated_intensive_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)
-
-if (ASYNQRO_QT_SUPPORT)
-    find_package(Qt5Core CONFIG REQUIRED)
-    target_link_libraries(asynqro_tasks_tests Qt5::Core)
-    target_compile_definitions(asynqro_tasks_tests PRIVATE ASYNQRO_QT_SUPPORT)
-    target_link_libraries(asynqro_tasks_preheated_tests Qt5::Core)
-    target_compile_definitions(asynqro_tasks_preheated_tests PRIVATE ASYNQRO_QT_SUPPORT)
-    target_link_libraries(asynqro_tasks_preheated_intensive_tests Qt5::Core)
-    target_compile_definitions(asynqro_tasks_preheated_intensive_tests PRIVATE ASYNQRO_QT_SUPPORT)
-endif()
-
