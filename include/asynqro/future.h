@@ -119,6 +119,16 @@ public:
     bool operator==(const Future<T, FailureT> &other) const noexcept { return d == other.d; }
     bool operator!=(const Future<T, FailureT> &other) const noexcept { return !operator==(other); }
 
+    template <typename... NewFailures, typename Dummy = detail::AsVariant_T<FailureT>,
+              typename = std::enable_if_t<detail::CanConvertVariant_V<Dummy, std::variant<NewFailures...>>>>
+    operator Future<T, std::variant<NewFailures...>>()
+    {
+        return mapFailure([](const FailureT &failure) {
+            return std::visit([](auto &&x) noexcept->std::variant<NewFailures...> { return x; },
+                              detail::AsVariant<FailureT>::make(failure));
+        });
+    }
+
     bool isCompleted() const noexcept
     {
         assert(d);
@@ -453,21 +463,37 @@ public:
         return recover([value = std::forward<T>(value)](const FailureT &) noexcept { return value; });
     }
 
-    //TODO: use type sum as FailureT type instead of restriction for single FailureT
     template <typename Head, typename... Tail,
-              typename Result = detail::FutureValuesProduct_T<Future<T, FailureT>, Head, Tail...>,
-              typename = std::enable_if_t<(std::is_same_v<FailureT, typename Head::Failure> && ...
-                                           && std::is_same_v<typename Head::Failure, typename Tail::Failure>)>>
-    Future<Result, FailureT> zip(Head head, Tail... tail) const noexcept
+              typename Result = detail::TypesProduct_T<T, typename Head::Value, typename Tail::Value...>,
+              typename InnerZipFailure = detail::TypesSum_T<typename Head::Failure, typename Tail::Failure...>,
+              typename NewFailure = detail::TypesSum_T<FailureT, InnerZipFailure>>
+    Future<Result, NewFailure> zip(Head head, Tail... tail) const noexcept
     {
-        return flatMap([head, tail...](const T &v) noexcept->Future<Result, FailureT> {
-            return head.zip(tail...).map([v](const auto &argsResult) noexcept->Result {
-                return std::tuple_cat(detail::AsTuple<T>::make(v), argsResult);
+        if constexpr (std::is_same_v<FailureT, NewFailure>) {
+            return flatMap([head, tail...](const T &v) noexcept->Future<Result, FailureT> {
+                return head.zip(tail...).map([v](const auto &argsResult) noexcept->Result {
+                    return std::tuple_cat(detail::AsTuple<T>::make(v), argsResult);
+                });
             });
-        });
+        } else {
+            return mapFailure([](const FailureT &failure) {
+                       return std::visit([](auto &&x) noexcept->NewFailure { return x; },
+                                         detail::AsVariant<FailureT>::make(failure));
+                   })
+                .flatMap([head, tail...](const T &v) noexcept->Future<Result, NewFailure> {
+                    return head.zip(tail...)
+                        .mapFailure([](const InnerZipFailure &failure) {
+                            return std::visit([](auto &&x) noexcept->NewFailure { return x; },
+                                              detail::AsVariant<InnerZipFailure>::make(failure));
+                        })
+                        .map([v](const auto &argsResult) noexcept->Result {
+                            return std::tuple_cat(detail::AsTuple<T>::make(v), argsResult);
+                        });
+                });
+        }
     }
-    template <typename T2,
-              typename Result = detail::FutureValuesProduct_T<Future<T, FailureT>, Future<std::decay_t<T2>, FailureT>>>
+
+    template <typename T2, typename Result = detail::TypesProduct_T<T, std::decay_t<T2>>>
     Future<Result, FailureT> zipValue(T2 &&value) const noexcept
     {
         return zip(Future<std::decay_t<T2>, FailureT>::successful(std::forward<T2>(value)));

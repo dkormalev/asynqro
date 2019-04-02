@@ -75,7 +75,7 @@ if higher-order method is called on already filled Future it will be called (in 
 - `recover` - `(FailureType->T)->Future<T, FailureType>` transform failed Future to successful
 - `recoverWith` - `(FailureType->Future<T, FailureType>)->Future<T, FailureType>` the same as recover, but allows to return Future in callback
 - `recoverValue` - `T->Future<T, FailureType>` shortcut for recover when we just need to replace with some already known value
-- `zip` - `(Future<U, FailureType>, ...) -> Future<std::tuple<T, U, ...>, FailureType>` combines values from different Futures. If any of the Futures already have tuple as inner type, then U will be list of types from this std::tuple (so resulting tuple will be a flattened one). Zipping futures with different failure types is not available yet.
+- `zip` - `(Future<U, FailureType>, ...) -> Future<std::tuple<T, U, ...>, FailureType>` combines values from different Futures. If any of the Futures already have tuple as inner type, then U will be list of types from this std::tuple (so resulting tuple will be a flattened one). If zipped Futures have different FailureTypes then they will be combined in std::variant (with flattening if some of FailureTypes are already variants).
 - `zipValue` - `U->Future<std::tuple<T, U>, FailureType>` - shortcut for zip with already known value.
 - `sequence` - `Sequence<Future<T, FailureType>> -> Future<Sequence<T>, FailureType>` transformation from sequence of Futures to single Future.
 

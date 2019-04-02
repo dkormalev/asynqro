@@ -141,3 +141,67 @@ TEST_F(FutureZipTest, zipValueLeftTuple)
     EXPECT_DOUBLE_EQ(5.0, std::get<1>(future.result()));
     EXPECT_EQ("Done", std::get<2>(future.result()));
 }
+
+TEST_F(FutureZipTest, zipDifferentFailures)
+{
+    TestPromise<int> firstPromise;
+    Promise<double, int> secondPromise;
+    Promise<double, double> thirdPromise;
+    Future<std::tuple<int, double, double>, std::variant<std::string, int, double>> future =
+        createFuture(firstPromise).zip(secondPromise.future()).zip(thirdPromise.future());
+    EXPECT_FALSE(future.isSucceeded());
+    secondPromise.success(5.0);
+    EXPECT_FALSE(future.isSucceeded());
+    firstPromise.success(42);
+    EXPECT_FALSE(future.isSucceeded());
+    thirdPromise.success(2.0);
+
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_TRUE(future.isSucceeded());
+    EXPECT_FALSE(future.isFailed());
+    EXPECT_EQ(42, std::get<0>(future.result()));
+    EXPECT_DOUBLE_EQ(5.0, std::get<1>(future.result()));
+    EXPECT_DOUBLE_EQ(2.0, std::get<2>(future.result()));
+}
+
+TEST_F(FutureZipTest, zipDifferentFailuresGrouped)
+{
+    TestPromise<int> firstPromise;
+    Promise<double, int> secondPromise;
+    Promise<double, double> thirdPromise;
+    Future<std::tuple<int, double, double>, std::variant<std::string, int, double>> future =
+        createFuture(firstPromise).zip(secondPromise.future(), thirdPromise.future());
+    EXPECT_FALSE(future.isSucceeded());
+    secondPromise.success(5.0);
+    EXPECT_FALSE(future.isSucceeded());
+    firstPromise.success(42);
+    EXPECT_FALSE(future.isSucceeded());
+    thirdPromise.success(2.0);
+
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_TRUE(future.isSucceeded());
+    EXPECT_FALSE(future.isFailed());
+    EXPECT_EQ(42, std::get<0>(future.result()));
+    EXPECT_DOUBLE_EQ(5.0, std::get<1>(future.result()));
+    EXPECT_DOUBLE_EQ(2.0, std::get<2>(future.result()));
+}
+
+TEST_F(FutureZipTest, zipDifferentFailuresFails)
+{
+    TestPromise<int> firstPromise;
+    Promise<double, int> secondPromise;
+    Promise<double, double> thirdPromise;
+    Future<std::tuple<int, double, double>, std::variant<std::string, int, double>> future =
+        createFuture(firstPromise).zip(secondPromise.future()).zip(thirdPromise.future());
+    EXPECT_FALSE(future.isSucceeded());
+    secondPromise.success(5.0);
+    EXPECT_FALSE(future.isSucceeded());
+    firstPromise.success(42);
+    EXPECT_FALSE(future.isSucceeded());
+    thirdPromise.failure(2.0);
+
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_TRUE(future.isFailed());
+    EXPECT_FALSE(future.isSucceeded());
+    EXPECT_DOUBLE_EQ(2.0, std::get<double>(future.failureReason()));
+}

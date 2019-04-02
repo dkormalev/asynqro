@@ -16,7 +16,6 @@ set_target_properties(asynqro_tasks_tests PROPERTIES
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
     POSITION_INDEPENDENT_CODE ON
-    AUTOMOC ON
 )
 target_link_libraries(asynqro_tasks_tests asynqro::asynqro gtest)
 gtest_discover_tests(asynqro_tasks_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)
@@ -37,7 +36,14 @@ set_target_properties(asynqro_tasks_preheated_intensive_tests PROPERTIES
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
     POSITION_INDEPENDENT_CODE ON
-    AUTOMOC ON
 )
 target_link_libraries(asynqro_tasks_preheated_intensive_tests asynqro::asynqro gtest)
+
+
+if (ASYNQRO_QT_SUPPORT)
+    set_target_properties(asynqro_tasks_tests PROPERTIES AUTOMOC ON)
+    set_target_properties(asynqro_tasks_preheated_tests PROPERTIES AUTOMOC ON)
+    set_target_properties(asynqro_tasks_preheated_intensive_tests PROPERTIES AUTOMOC ON)
+endif()
+
 gtest_discover_tests(asynqro_tasks_preheated_intensive_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)

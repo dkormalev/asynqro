@@ -416,6 +416,32 @@ TEST_F(FutureBasicsTest, isValid)
     EXPECT_TRUE(validFromPromise.isValid());
 }
 
+TEST_F(FutureBasicsTest, castFailureFromSingleType)
+{
+    Promise<int, int> promise;
+    Future<int, int> future = promise.future();
+    Future<int, std::variant<int, double>> first = future;
+    Future<int, std::variant<double, int>> second = future;
+    promise.failure(42);
+    EXPECT_EQ(42, std::get<int>(first.failureReason()));
+    EXPECT_EQ(42, std::get<int>(second.failureReason()));
+}
+
+TEST_F(FutureBasicsTest, castFailureFromVariant)
+{
+    Promise<int, std::variant<int, std::string>> promise;
+    Future<int, std::variant<int, std::string>> future = promise.future();
+    Future<int, std::variant<int, double, std::string>> first = future;
+    Future<int, std::variant<double, std::string, int>> second = future;
+    Future<int, std::variant<std::string, double, int>> third = future;
+    Future<int, std::variant<std::string, int>> fourth = future;
+    promise.failure("abc");
+    EXPECT_EQ("abc", std::get<std::string>(first.failureReason()));
+    EXPECT_EQ("abc", std::get<std::string>(second.failureReason()));
+    EXPECT_EQ("abc", std::get<std::string>(third.failureReason()));
+    EXPECT_EQ("abc", std::get<std::string>(fourth.failureReason()));
+}
+
 #ifdef ASYNQRO_QT_SUPPORT
 #    include "future_basics_test.moc"
 #endif

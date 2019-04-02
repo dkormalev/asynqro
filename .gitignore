@@ -1,5 +1,6 @@
 *.user
 build-*
+*-build-*
 bin
 .DS_Store
 *.xlsx
@@ -7,3 +8,4 @@ bin
 *.so
 .vs/
 CMakeSettings.json
+.idea/
