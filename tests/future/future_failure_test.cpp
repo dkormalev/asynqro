@@ -80,6 +80,23 @@ TEST_F(FutureFailureTest, withFailureArgs)
     EXPECT_EQ("failed", future.failureReason());
 }
 
+TEST_F(FutureFailureTest, failureFromStringSanity)
+{
+    struct Dummy
+    {
+        int nonZero = 3;
+        int zero = 0;
+    };
+
+    std::string str = failure::failureFromString<std::string>("abc");
+    Dummy dummy = failure::failureFromString<Dummy>("abc");
+    int integer = failure::failureFromString<int>("abc");
+    EXPECT_EQ("abc", str);
+    EXPECT_EQ(0, integer);
+    EXPECT_EQ(0, dummy.zero);
+    EXPECT_EQ(3, dummy.nonZero);
+}
+
 TEST_F(FutureFailureTest, failureFromMap)
 {
     TestPromise<int> promise;
