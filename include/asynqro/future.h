@@ -121,7 +121,7 @@ public:
 
     template <typename... NewFailures, typename Dummy = detail::AsVariant_T<FailureT>,
               typename = std::enable_if_t<detail::CanConvertVariant_V<Dummy, std::variant<NewFailures...>>>>
-    operator Future<T, std::variant<NewFailures...>>()
+    operator Future<T, std::variant<NewFailures...>>() // NOLINT(google-explicit-constructor)
     {
         return mapFailure([](const FailureT &failure) {
             return std::visit([](auto &&x) noexcept->std::variant<NewFailures...> { return x; },
@@ -475,7 +475,7 @@ public:
                     return std::tuple_cat(detail::AsTuple<T>::make(v), argsResult);
                 });
             });
-        } else {
+        } else { // NOLINT(readability-else-after-return)
             return mapFailure([](const FailureT &failure) {
                        return std::visit([](auto &&x) noexcept->NewFailure { return x; },
                                          detail::AsVariant<FailureT>::make(failure));
