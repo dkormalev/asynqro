@@ -13,7 +13,7 @@ Asynqro is a small library with purpose to make C++ programming easier by giving
 - **CMake** `>= 3.12.0`
 - **GoogleTest**. Will be automatically downloaded during cmake phase
 - **lcov**. 1.13 from github or 1.13-4 from debian is not enough. Should contain [1e0df57](https://github.com/linux-test-project/lcov/commit/1e0df571198229b4701100ce5f596cf1658ede4b) commit. Used for code coverage calculation, not needed for regular build
-- **Qt5** `>= 5.6`. It is not required though and by default asynqro is built without Qt support. There is no Qt dependency in library itself, but enabling it brings support for Qt containers and `Future::wait()` becomes guithread-aware.
+- Optional **Qt5** `>= 5.6`. It is not required though and by default asynqro is built without Qt support. There is no Qt dependency in library itself, but enabling it brings support for Qt containers and `Future::wait()` becomes guithread-aware.
 
 Asynqro has two main parts:
 - Future/Promise
