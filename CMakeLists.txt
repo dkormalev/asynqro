@@ -22,6 +22,11 @@ option(ASYNQRO_BUILD_WITH_GCOV
     OFF
 )
 
+option(ASYNQRO_BUILD_WITH_DUMMY
+    "Build asynqro with dummy TU for better static analysis coverage"
+    OFF
+)
+
 if (BUILD_SHARED_LIBS)
     message("-- asynqro: Building as shared library")
 else()
@@ -57,6 +62,12 @@ add_library(asynqro
     include/asynqro/impl/tasksdispatcher.h
     include/asynqro/impl/taskslist_p.h
 )
+
+if(ASYNQRO_BUILD_WITH_DUMMY)
+    message("-- asynqro: Building with dummy TU")
+    target_sources(asynqro PRIVATE src/extra/dummy.cpp)
+endif()
+
 add_library(asynqro::asynqro ALIAS asynqro)
 generate_export_header(asynqro EXPORT_FILE_NAME generated_include/asynqro/impl/asynqro_export.h)
 

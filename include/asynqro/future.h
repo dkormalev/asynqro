@@ -475,7 +475,7 @@ public:
                     return std::tuple_cat(detail::AsTuple<T>::make(v), argsResult);
                 });
             });
-        } else { // NOLINT(readability-else-after-return)
+        } else { // NOLINT(readability-else-after-return,readability-misleading-indentation)
             return mapFailure([](const FailureT &failure) {
                        return std::visit([](auto &&x) noexcept->NewFailure { return x; },
                                          detail::AsVariant<FailureT>::make(failure));
