@@ -134,7 +134,7 @@ auto run(const C &data, Task &&f, TaskType type = TaskType::Intensive, int32_t t
 {
     using Helper = detail::SequenceHelper<Runner, Task, C, T>;
 
-    if (!data.size())
+    if (data.empty())
         return Helper::SequenceFinalResult::successful();
 
     detail::WithInnerType_T<C, typename Helper::RunResult> futures;
@@ -166,7 +166,7 @@ template <typename Runner = detail::DefaultRunner, typename C, typename T = deta
 ResultFuture clusteredRun(C &&data, Task &&f, int64_t minClusterSize = 1, TaskType type = TaskType::Intensive,
                           int32_t tag = 0, TaskPriority priority = TaskPriority::Regular) noexcept
 {
-    if (!data.size())
+    if (data.empty())
         return ResultFuture::successful();
     if (minClusterSize <= 0)
         minClusterSize = 1;
