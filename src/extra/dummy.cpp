@@ -37,4 +37,7 @@ auto f2 = p.future()
               .flatMap([](auto) { return f; })
               .mapFailure([](auto fail) { return fail; });
 auto r = f2.zip(tasks::run([]() { int x = 5 + 2; })).result();
+
+auto f3 = p.future() >> ([](auto) { return 5; }) >> ([](auto) { return f; });
+auto r2 = (f3 + tasks::run([]() { int x = 5 + 2; })).result();
 } // namespace

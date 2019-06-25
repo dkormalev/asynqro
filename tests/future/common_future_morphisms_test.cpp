@@ -28,6 +28,7 @@ TEST_F(FutureMorphismsTest, map)
     EXPECT_FALSE(mappedFuture.isFailed());
     EXPECT_EQ(84, mappedFuture.result());
 }
+
 TEST_F(FutureMorphismsTest, differentTypeMap)
 {
     TestPromise<int> promise;
@@ -577,4 +578,119 @@ TEST_F(FutureMorphismsTest, recoverValueNoOp)
     ASSERT_TRUE(recoveredFuture.isCompleted());
     EXPECT_TRUE(recoveredFuture.isSucceeded());
     EXPECT_EQ(21, recoveredFuture.result());
+}
+
+TEST_F(FutureMorphismsTest, differentTypeMapViaOperator)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    TestFuture<double> mappedFuture = future >> [](int x) -> double { return x / 2.0; };
+    EXPECT_FALSE(mappedFuture.isCompleted());
+    promise.success(42);
+    EXPECT_EQ(42, future.result());
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_TRUE(mappedFuture.isSucceeded());
+    EXPECT_FALSE(mappedFuture.isFailed());
+    EXPECT_DOUBLE_EQ(21.0, mappedFuture.result());
+}
+
+TEST_F(FutureMorphismsTest, differentTypeFlatMapViaOperator)
+{
+    TestPromise<int> promise;
+    TestPromise<double> innerPromise;
+    auto future = createFuture(promise);
+    TestFuture<double> mappedFuture = future >> [innerPromise](int x) {
+        return innerPromise.future().map([x](double y) { return x / y; });
+    };
+    promise.success(42);
+    EXPECT_EQ(42, future.result());
+    EXPECT_FALSE(mappedFuture.isCompleted());
+    innerPromise.success(2.0);
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_TRUE(mappedFuture.isSucceeded());
+    EXPECT_FALSE(mappedFuture.isFailed());
+    EXPECT_DOUBLE_EQ(21.0, mappedFuture.result());
+}
+
+TEST_F(FutureMorphismsTest, differentTypeAndThenViaOperator)
+{
+    TestPromise<int> promise;
+    TestPromise<double> innerPromise;
+    auto future = createFuture(promise);
+    TestFuture<double> mappedFuture = future >> [innerPromise]() { return innerPromise.future(); };
+    promise.success(42);
+    EXPECT_EQ(42, future.result());
+    EXPECT_FALSE(mappedFuture.isCompleted());
+    innerPromise.success(2.0);
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_TRUE(mappedFuture.isSucceeded());
+    EXPECT_FALSE(mappedFuture.isFailed());
+    EXPECT_DOUBLE_EQ(2.0, mappedFuture.result());
+}
+
+TEST_F(FutureMorphismsTest, multipleMapViaOperator)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    TestFuture<double> mappedFuture = future >> [](int x) { return x / 2.0; } >> [](double x) { return x * 3.0; };
+    EXPECT_FALSE(mappedFuture.isCompleted());
+    promise.success(42);
+    EXPECT_EQ(42, future.result());
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_TRUE(mappedFuture.isSucceeded());
+    EXPECT_FALSE(mappedFuture.isFailed());
+    EXPECT_DOUBLE_EQ(63.0, mappedFuture.result());
+}
+
+TEST_F(FutureMorphismsTest, multipleFlatMapViaOperator)
+{
+    TestPromise<int> promise;
+    TestPromise<double> innerPromise;
+    auto future = createFuture(promise);
+    TestFuture<int> mappedFuture = future >> [innerPromise](int x) {
+        return innerPromise.future().map([x](double y) { return x / y; });
+    } >> [](double x) { return TestFuture<int>::successful(static_cast<int>(x) - 1); };
+    promise.success(42);
+    EXPECT_EQ(42, future.result());
+    EXPECT_FALSE(mappedFuture.isCompleted());
+    innerPromise.success(2.0);
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_TRUE(mappedFuture.isSucceeded());
+    EXPECT_FALSE(mappedFuture.isFailed());
+    EXPECT_EQ(20, mappedFuture.result());
+}
+
+TEST_F(FutureMorphismsTest, multipleAndThenViaOperator)
+{
+    TestPromise<int> promise;
+    TestPromise<double> innerPromise;
+    auto future = createFuture(promise);
+    TestFuture<int> mappedFuture = future >> [innerPromise] { return innerPromise.future(); } >>
+                                   [] { return TestFuture<int>::successful(42); };
+    promise.success(42);
+    EXPECT_EQ(42, future.result());
+    EXPECT_FALSE(mappedFuture.isCompleted());
+    innerPromise.success(2.0);
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_TRUE(mappedFuture.isSucceeded());
+    EXPECT_FALSE(mappedFuture.isFailed());
+    EXPECT_EQ(42, mappedFuture.result());
+}
+
+TEST_F(FutureMorphismsTest, mixedMapsViaOperator)
+{
+    TestPromise<int> promise;
+    TestPromise<double> innerPromise;
+    auto future = createFuture(promise);
+    TestFuture<double> mappedFuture = future >> [this, innerPromise]() { return createFuture(innerPromise); } >>
+                                      [](double x) { return TestFuture<int>::successful(static_cast<int>(x) + 5); } >>
+                                      [](double x) { return x * 2; };
+    promise.success(42);
+    EXPECT_EQ(42, future.result());
+    EXPECT_FALSE(mappedFuture.isCompleted());
+    innerPromise.success(2.0);
+    ASSERT_TRUE(mappedFuture.isCompleted());
+    EXPECT_TRUE(mappedFuture.isSucceeded());
+    EXPECT_FALSE(mappedFuture.isFailed());
+    EXPECT_DOUBLE_EQ(14, mappedFuture.result());
 }

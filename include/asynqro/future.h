@@ -705,6 +705,50 @@ private:
 
 int_fast64_t ASYNQRO_EXPORT instantFuturesUsage();
 
+template <typename LeftT, typename LeftFailure, typename RightT, typename RightFailure>
+auto operator+(const Future<LeftT, LeftFailure> &left, const Future<RightT, RightFailure> &right)
+{
+    return left.zip(right);
+}
+
+template <typename LeftT, typename LeftFailure, typename RightT, typename RightFailure>
+auto operator+(const Future<LeftT, LeftFailure> &left, const CancelableFuture<RightT, RightFailure> &right)
+{
+    return operator+(left, right.future());
+}
+
+template <typename LeftT, typename LeftFailure, typename RightT, typename RightFailure>
+auto operator+(const CancelableFuture<LeftT, LeftFailure> &left, const Future<RightT, RightFailure> &right)
+{
+    return operator+(left.future(), right);
+}
+
+template <typename LeftT, typename LeftFailure, typename RightT, typename RightFailure>
+auto operator+(const CancelableFuture<LeftT, LeftFailure> &left, const CancelableFuture<RightT, RightFailure> &right)
+{
+    return operator+(left.future(), right.future());
+}
+
+template <typename T, typename Failure, typename Func>
+auto operator>>(const Future<T, Failure> &left, Func &&right)
+{
+    if constexpr (std::is_invocable_v<Func>) {
+        return left.andThen(std::forward<Func>(right));
+    } else { // NOLINT(readability-else-after-return)
+        using ResultT = std::invoke_result_t<Func, T>;
+        if constexpr (detail::IsSpecialization_V<ResultT, Future> || detail::IsSpecialization_V<ResultT, CancelableFuture>) {
+            return left.flatMap(std::forward<Func>(right));
+        } else { // NOLINT(readability-else-after-return)
+            return left.map(std::forward<Func>(right));
+        }
+    }
+}
+
+template <typename T, typename Failure, typename Func>
+auto operator>>(const CancelableFuture<T, Failure> &left, Func &&right)
+{
+    return operator>>(left.future(), std::forward<Func>(right));
+}
 } // namespace asynqro
 
 #endif // ASYNQRO_FUTURE_H

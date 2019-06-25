@@ -205,3 +205,128 @@ TEST_F(FutureZipTest, zipDifferentFailuresFails)
     EXPECT_FALSE(future.isSucceeded());
     EXPECT_DOUBLE_EQ(2.0, std::get<double>(future.failureReason()));
 }
+
+TEST_F(FutureZipTest, zipViaOperator)
+{
+    TestPromise<int> firstPromise;
+    TestPromise<double> secondPromise;
+    TestPromise<std::string> thirdPromise;
+    TestFuture<std::tuple<int, double, std::string>> future = createFuture(firstPromise) + createFuture(secondPromise)
+                                                              + createFuture(thirdPromise);
+    EXPECT_FALSE(future.isSucceeded());
+    secondPromise.success(5.0);
+    EXPECT_FALSE(future.isSucceeded());
+    firstPromise.success(42);
+    EXPECT_FALSE(future.isSucceeded());
+    thirdPromise.success("Done");
+
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_TRUE(future.isSucceeded());
+    EXPECT_FALSE(future.isFailed());
+    EXPECT_EQ(42, std::get<0>(future.result()));
+    EXPECT_DOUBLE_EQ(5.0, std::get<1>(future.result()));
+    EXPECT_EQ("Done", std::get<2>(future.result()));
+}
+
+TEST_F(FutureZipTest, zipDifferentFailuresViaOperator)
+{
+    TestPromise<int> firstPromise;
+    Promise<double, int> secondPromise;
+    Promise<double, double> thirdPromise;
+    Future<std::tuple<int, double, double>, std::variant<std::string, int, double>> future = createFuture(firstPromise)
+                                                                                             + secondPromise.future()
+                                                                                             + thirdPromise.future();
+    EXPECT_FALSE(future.isSucceeded());
+    secondPromise.success(5.0);
+    EXPECT_FALSE(future.isSucceeded());
+    firstPromise.success(42);
+    EXPECT_FALSE(future.isSucceeded());
+    thirdPromise.success(2.0);
+
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_TRUE(future.isSucceeded());
+    EXPECT_FALSE(future.isFailed());
+    EXPECT_EQ(42, std::get<0>(future.result()));
+    EXPECT_DOUBLE_EQ(5.0, std::get<1>(future.result()));
+    EXPECT_DOUBLE_EQ(2.0, std::get<2>(future.result()));
+}
+
+TEST_F(FutureZipTest, zipViaOperatorGrouped)
+{
+    TestPromise<int> firstPromise;
+    TestPromise<double> secondPromise;
+    TestPromise<std::string> thirdPromise;
+    TestFuture<std::tuple<int, double, std::string>> future = createFuture(firstPromise)
+                                                              + (createFuture(secondPromise) + createFuture(thirdPromise));
+    EXPECT_FALSE(future.isSucceeded());
+    secondPromise.success(5.0);
+    EXPECT_FALSE(future.isSucceeded());
+    firstPromise.success(42);
+    EXPECT_FALSE(future.isSucceeded());
+    thirdPromise.success("Done");
+
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_TRUE(future.isSucceeded());
+    EXPECT_FALSE(future.isFailed());
+    EXPECT_EQ(42, std::get<0>(future.result()));
+    EXPECT_DOUBLE_EQ(5.0, std::get<1>(future.result()));
+    EXPECT_EQ("Done", std::get<2>(future.result()));
+}
+
+TEST_F(FutureZipTest, zipDifferentFailuresViaOperatorGrouped)
+{
+    TestPromise<int> firstPromise;
+    Promise<double, int> secondPromise;
+    Promise<double, double> thirdPromise;
+    Future<std::tuple<int, double, double>, std::variant<std::string, int, double>> future = createFuture(firstPromise)
+                                                                                             + (secondPromise.future()
+                                                                                                + thirdPromise.future());
+    EXPECT_FALSE(future.isSucceeded());
+    secondPromise.success(5.0);
+    EXPECT_FALSE(future.isSucceeded());
+    firstPromise.success(42);
+    EXPECT_FALSE(future.isSucceeded());
+    thirdPromise.success(2.0);
+
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_TRUE(future.isSucceeded());
+    EXPECT_FALSE(future.isFailed());
+    EXPECT_EQ(42, std::get<0>(future.result()));
+    EXPECT_DOUBLE_EQ(5.0, std::get<1>(future.result()));
+    EXPECT_DOUBLE_EQ(2.0, std::get<2>(future.result()));
+}
+
+TEST_F(FutureZipTest, zipWithRegularFutureViaOperator)
+{
+    {
+        TestPromise<int> firstPromise;
+        Promise<double, std::string> secondPromise;
+        TestFuture<std::tuple<int, double>> future = createFuture(firstPromise) + secondPromise.future();
+        EXPECT_FALSE(future.isSucceeded());
+        secondPromise.success(5.0);
+        EXPECT_FALSE(future.isSucceeded());
+        firstPromise.success(42);
+
+        ASSERT_TRUE(future.isCompleted());
+        EXPECT_TRUE(future.isSucceeded());
+        EXPECT_FALSE(future.isFailed());
+        EXPECT_EQ(42, std::get<0>(future.result()));
+        EXPECT_DOUBLE_EQ(5.0, std::get<1>(future.result()));
+    }
+
+    {
+        TestPromise<int> firstPromise;
+        Promise<double, std::string> secondPromise;
+        TestFuture<std::tuple<double, int>> future = secondPromise.future() + createFuture(firstPromise);
+        EXPECT_FALSE(future.isSucceeded());
+        secondPromise.success(5.0);
+        EXPECT_FALSE(future.isSucceeded());
+        firstPromise.success(42);
+
+        ASSERT_TRUE(future.isCompleted());
+        EXPECT_TRUE(future.isSucceeded());
+        EXPECT_FALSE(future.isFailed());
+        EXPECT_EQ(42, std::get<1>(future.result()));
+        EXPECT_DOUBLE_EQ(5.0, std::get<0>(future.result()));
+    }
+}
