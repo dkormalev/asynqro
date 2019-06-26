@@ -734,11 +734,11 @@ auto operator>>(const Future<T, Failure> &left, Func &&right)
 {
     if constexpr (std::is_invocable_v<Func>) {
         return left.andThen(std::forward<Func>(right));
-    } else { // NOLINT(readability-else-after-return)
+    } else { // NOLINT(readability-else-after-return,readability-misleading-indentation)
         using ResultT = std::invoke_result_t<Func, T>;
         if constexpr (detail::IsSpecialization_V<ResultT, Future> || detail::IsSpecialization_V<ResultT, CancelableFuture>) {
             return left.flatMap(std::forward<Func>(right));
-        } else { // NOLINT(readability-else-after-return)
+        } else { // NOLINT(readability-else-after-return,readability-misleading-indentation)
             return left.map(std::forward<Func>(right));
         }
     }
