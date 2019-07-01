@@ -9,11 +9,11 @@
 Asynqro is a small library with purpose to make C++ programming easier by giving developers rich monadic Future API (mostly inspired by Future API in Scala language). This library is another implementation of ideas in https://github.com/opensoft/proofseed (now moved to asynqro usage, for historic purposes check tags before 02/25/19), but has much cleaner API, refined task scheduling logic and is not tied to any framework.
 
 ### Dependencies
-- **C++17**: tested with Clang7 (travis), GCC8 (travis) and MSVC17 (appveyor)
+- **C++17**: tested with Clang8 (travis), GCC8 (travis) and MSVC17 (appveyor)
 - **CMake** `>= 3.12.0`
 - **GoogleTest**. Will be automatically downloaded during cmake phase
-- **lcov**. 1.13 from github or 1.13-4 from debian is not enough. Should contain [1e0df57](https://github.com/linux-test-project/lcov/commit/1e0df571198229b4701100ce5f596cf1658ede4b) commit. Used for code coverage calculation, not needed for regular build
-- Optional **Qt5** `>= 5.6`. It is not required though and by default asynqro is built without Qt support. There is no Qt dependency in library itself, but enabling it brings support for Qt containers and `Future::wait()` becomes guithread-aware.
+- **lcov** `>= 1.14`. Used for code coverage calculation, not needed for regular build
+- Optional **Qt5** `>= 5.6`. It is not required though and by default asynqro is built without Qt support. There is no Qt dependency in library itself, but enabling it brings support for Qt containers, adds `Future::fromQtSignal()` and `Future::wait()` becomes guithread-aware.
 
 Asynqro has two main parts:
 - Future/Promise
@@ -60,24 +60,26 @@ if higher-order method is called on already filled Future it will be called (in 
 #### Future API
 - `successful` - `T->Future<T, FailureType>` creates new Future object filled as successful with provided value
 - `failed` - `FailureType->Future<T, FailureType>` creates new Future object filled as failed with provided reason
+- `fromQtSignal` - `(QObject, Signal)->Future<T, FailureType>` creates new Future object that will be filled when signal emits. `T` here should be either bool or same type as signal parameter (if signal has more than one parameter `T` should be `std::tuple`)
 - `wait` - waits for Future to be filled (either as successful or as failed) if it is not yet filled with optional timeout
 - `isCompleted`/`isFailed`/`isSucceeded` - returns current state of Future
 - `result`/`resultRef`/`failureReason` - returns result of Future or failure reason. Will wait for Future to be filled if it isn't already.
 - `onSuccess` - `(T->void)->Future<T, FailureType>` adds a callback for successful case.
 - `onFailure` - `(FailureType->void)->Future<T, FailureType>` adds a callback for failure case.
 - `filter` - `(T->bool, FailureType)->Future<T, FailureType>` fails Future if function returns false for filled value.
-- `map` - `(T->U)->Future<U, FailureType>` transforms Future inner type.
+- `map` - `(T->U)->Future<U, FailureType>` transforms Future inner type. Also available as `>>` operator.
 - `mapFailure` - `(FailureType->OtherFailureType)->Future<T, OtherFailureType>` transforms Future failure type.
-- `flatMap` - `(T->Future<U, FailureType>)->Future<U, FailureType>` transforms Future inner type.
-- `andThen` - `(void->Future<U, FailureType>)->Future<U, FailureType>` shortcut for flatMap if value of previous Future doesn't matter.
+- `flatMap` - `(T->Future<U, FailureType>)->Future<U, FailureType>` transforms Future inner type. Also available as `>>` operator.
+- `andThen` - `(void->Future<U, FailureType>)->Future<U, FailureType>` shortcut for flatMap if value of previous Future doesn't matter. Also available as `>>` operator.
 - `andThenValue` - `U->Future<U, FailureType>` shortcut for andThen if all we need is to replace value of successful Future with some already known value.
 - `innerReduce`/`innerMap`/`innerFilter`/`innerFlatten` - applicable only for Future with sequence inner type. Allows to modify sequence by reducing, mapping, filtering or flattening it.
 - `recover` - `(FailureType->T)->Future<T, FailureType>` transform failed Future to successful
 - `recoverWith` - `(FailureType->Future<T, FailureType>)->Future<T, FailureType>` the same as recover, but allows to return Future in callback
 - `recoverValue` - `T->Future<T, FailureType>` shortcut for recover when we just need to replace with some already known value
-- `zip` - `(Future<U, FailureType>, ...) -> Future<std::tuple<T, U, ...>, FailureType>` combines values from different Futures. If any of the Futures already have tuple as inner type, then U will be list of types from this std::tuple (so resulting tuple will be a flattened one). If zipped Futures have different FailureTypes then they will be combined in std::variant (with flattening if some of FailureTypes are already variants).
+- `zip` - `(Future<U, FailureType>, ...) -> Future<std::tuple<T, U, ...>, FailureType>` combines values from different Futures. If any of the Futures already have tuple as inner type, then U will be list of types from this std::tuple (so resulting tuple will be a flattened one). If zipped Futures have different FailureTypes then they will be combined in std::variant (with flattening if some of FailureTypes are already variants). Also available as `+` operator.
 - `zipValue` - `U->Future<std::tuple<T, U>, FailureType>` - shortcut for zip with already known value.
 - `sequence` - `Sequence<Future<T, FailureType>> -> Future<Sequence<T>, FailureType>` transformation from sequence of Futures to single Future.
+- `sequenceWithFailures` - `Sequence<Future<T, FailureType>> -> Future<std::pair<AssocSequence<Sequence::size_type, T>, AssocSequence<Sequence::size_type, FailureType>>, FailureType>` transformation from sequence of Futures to single Future with separate containers for successful Futures and failed ones. `AssocSequence` can be set as optional type parameter.
 
 ### CancelableFuture
 API of this class is the same as Future API plus `cancel` method, that immediately fills this Future. CancelableFuture can be created only from Promise so it is up to providing side to decide if return value should be cancelable or not. Returning CancelableFuture however doesn't bind to follow cancelation as order, it can be considered as a hint. For example, Network API can return CancelableFuture and cancelation will be provided only for requests that are still in queue.
