@@ -26,18 +26,36 @@
 #include "asynqro/simplefuture.h"
 #include "asynqro/tasks.h"
 
+#include <vector>
+
 using namespace asynqro;
 
 namespace {
 auto f = Future<int, int>::successful(5).andThenValue(25.0);
 auto p = Promise<int, int>();
 auto f2 = p.future()
+              .recover([](auto f) { return f; })
+              .recoverWith([](auto f) { return Future<int, int>::failed(f); })
+              .recoverValue(5)
               .map([](auto) { return 5; })
               .filter([](auto) { return true; })
               .flatMap([](auto) { return f; })
+              .andThen([]() { return f; })
               .mapFailure([](auto fail) { return fail; });
-auto r = f2.zip(tasks::run([]() { int x = 5 + 2; })).result();
+auto r = f2.zip(tasks::run([]() { int x = 5 + 2; })).zipValue(5).result();
 
-auto f3 = p.future() >> ([](auto) { return 5; }) >> ([](auto) { return f; });
+auto f3 = p.future() >> ([](auto) { return 5; }) >> ([](auto) { return f; }) >> []() { return f; };
 auto r2 = (f3 + tasks::run([]() { int x = 5 + 2; })).result();
+
+auto f4 = Future<double, int>::sequence(std::vector{f, f2, f3});
+auto f5 = f4.innerMap([](auto) { return 5.0; })
+              .innerFilter([](auto) { return true; })
+              .innerReduce([](auto, auto) { return 5; }, 0);
+
+auto f6 = Future<double, int>::sequenceWithFailures(std::vector{f, f2, f3});
+
+auto sf1 = simple::successful(5);
+auto sf2 = simple::successful(5);
+auto sf3 = simple::sequence(std::vector{sf1, sf2});
+auto sf4 = simple::sequenceWithFailures(std::vector{sf1, sf2});
 } // namespace

@@ -17,6 +17,7 @@ add_executable(asynqro_future_tests
     future_zip_test.cpp
     cancelablefuture_zip_test.cpp
     future_sequence_test.cpp
+    future_sequence_with_failures_test.cpp
     future_failure_test.cpp
     future_exceptions_test.cpp
     futurebasetest.h

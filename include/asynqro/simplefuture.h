@@ -70,6 +70,22 @@ Future<Container<T>> sequence(Container<F<T, std::any>, Fs...> &&container) noex
 {
     return Future<T>::sequence(std::move(container));
 }
+
+// This overload copies container to make sure that it will be reachable in future
+template <template <typename...> typename ResultContainer = std::unordered_map, typename Container,
+          typename F = typename Container::value_type, typename T = typename F::Value>
+auto sequenceWithFailures(const Container &container) noexcept
+{
+    Container copy = container;
+    return Future<T>::template sequenceWithFailures<ResultContainer>(std::move(copy));
+}
+
+template <template <typename...> typename ResultContainer = std::unordered_map, typename Container,
+          typename F = typename Container::value_type, typename T = typename F::Value>
+auto sequenceWithFailures(Container &&container) noexcept
+{
+    return Future<T>::template sequenceWithFailures<ResultContainer>(std::forward<Container>(container));
+}
 } // namespace simple
 } // namespace asynqro
 

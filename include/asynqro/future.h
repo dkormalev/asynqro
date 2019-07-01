@@ -523,10 +523,7 @@ public:
     }
 
     // This overload copies container to make sure that it will be reachable in future
-    template <template <typename...> typename F, template <typename...> typename Container, typename... Fs,
-              typename = std::enable_if_t<
-                  std::is_same_v<F<T, FailureT>,
-                                 Future<T, FailureT>> || std::is_same_v<F<T, FailureT>, CancelableFuture<T, FailureT>>>>
+    template <template <typename...> typename F, template <typename...> typename Container, typename... Fs>
     static Future<Container<T>, FailureT> sequence(const Container<F<T, FailureT>, Fs...> &container) noexcept
     {
         Container<F<T, FailureT>> copy(container);
@@ -534,10 +531,10 @@ public:
     }
 
     template <template <typename...> typename F, template <typename...> typename Container, typename... Fs,
-              typename Dummy = void, typename = std::enable_if_t<std::is_copy_constructible_v<T>, Dummy>,
+              typename FullF = F<T, FailureT>, typename Dummy = void,
+              typename = std::enable_if_t<std::is_copy_constructible_v<T>, Dummy>,
               typename = std::enable_if_t<
-                  std::is_same_v<F<T, FailureT>,
-                                 Future<T, FailureT>> || std::is_same_v<F<T, FailureT>, CancelableFuture<T, FailureT>>>>
+                  std::is_same_v<FullF, Future<T, FailureT>> || std::is_same_v<FullF, CancelableFuture<T, FailureT>>>>
     static Future<Container<T>, FailureT> sequence(Container<F<T, FailureT>, Fs...> &&container) noexcept
     {
         if (container.empty())
@@ -546,6 +543,29 @@ public:
         Container<T> result;
         traverse::detail::containers::reserve(result, container.size());
         iterateSequence(std::move(container), container.cbegin(), std::move(result), future);
+        return future;
+    }
+
+    // This overload copies container to make sure that it will be reachable in future
+    template <template <typename...> typename ResultContainer = std::unordered_map, typename Container>
+    static auto sequenceWithFailures(const Container &container) noexcept
+    {
+        Container copy(container);
+        return sequenceWithFailures<ResultContainer>(std::move(copy));
+    }
+
+    template <template <typename...> typename ResultContainer = std::unordered_map, typename Container,
+              typename F = typename Container::value_type, typename IndexType = typename Container::size_type,
+              typename ResultType = std::pair<ResultContainer<IndexType, T>, ResultContainer<IndexType, FailureT>>,
+              typename Dummy = void, typename = std::enable_if_t<std::is_copy_constructible_v<T>, Dummy>,
+              typename = std::enable_if_t<std::is_same_v<F, Future<T, FailureT>> || std::is_same_v<F, CancelableFuture<T, FailureT>>>>
+    static Future<ResultType, FailureT> sequenceWithFailures(Container &&container) noexcept
+    {
+        if (container.empty())
+            return Future<ResultType, FailureT>::successful();
+        auto future = Future<ResultType, FailureT>::create();
+        ResultType result;
+        iterateSequenceWithFailures(std::forward<Container>(container), container.cbegin(), 0, std::move(result), future);
         return future;
     }
 
@@ -698,6 +718,45 @@ private:
                 Future<T, FailureT>::iterateSequence(std::move(initial), current, std::move(result), future);
             })
             .onFailure([future](const FailureT &reason) noexcept { future.fillFailure(reason); });
+    }
+
+    template <typename It, template <typename...> typename F, typename... Fs, template <typename...> typename ResultType,
+              typename... ResultArgs, template <typename...> typename Container>
+    static void iterateSequenceWithFailures(Container<F<T, FailureT>, Fs...> &&initial, It current,
+                                            typename Container<F<T, FailureT>>::size_type index,
+                                            ResultType<ResultArgs...> &&result,
+                                            const Future<ResultType<ResultArgs...>, FailureT> &future) noexcept
+    {
+        try {
+            while (current != initial.cend()) {
+                auto f = (*current);
+                if (!f.isCompleted())
+                    break;
+                if (f.isSucceeded())
+                    traverse::detail::containers::add(result.first, std::make_pair(index, f.result()));
+                else
+                    traverse::detail::containers::add(result.second, std::make_pair(index, f.failureReason()));
+                ++index;
+                ++current;
+            }
+        } catch (const std::exception &e) {
+            future.fillFailure(detail::exceptionFailure<Failure>(e));
+            return;
+        } catch (...) {
+            future.fillFailure(detail::exceptionFailure<Failure>());
+            return;
+        }
+
+        if (current == initial.cend()) {
+            future.fillSuccess(std::move(result));
+            return;
+        }
+        auto currentFuture = *current;
+        currentFuture.andThenValue(true).recoverValue(true).onSuccess(
+            [initial = std::move(initial), current, result = std::move(result), index, future](bool) mutable noexcept {
+                Future<T, FailureT>::iterateSequenceWithFailures(std::move(initial), current, index, std::move(result),
+                                                                 future);
+            });
     }
 
     std::shared_ptr<detail::FutureData<T, FailureT>> d;

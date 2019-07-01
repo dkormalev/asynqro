@@ -15,7 +15,7 @@ cd /asynqro/build;
 echo -e "\033[1m$ cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DASYNQRO_BUILD_TESTS=OFF -DASYNQRO_QT_SUPPORT=ON -DASYNQRO_BUILD_WITH_DUMMY=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \"-DCMAKE_CXX_FLAGS=$BUILD_OPTIONS\" ..\033[0m"
 cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DASYNQRO_BUILD_TESTS=OFF -DASYNQRO_QT_SUPPORT=ON -DASYNQRO_BUILD_WITH_DUMMY=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON "-DCMAKE_CXX_FLAGS=$BUILD_OPTIONS" ..;
 echo -e "\033[1m$ /run-clang-tidy-asynqro.py -header-filter='.*(h|cpp)$' -checks=\"$CLANG_TIDY_CHECKS\" -j$THREADS_COUNT -quiet\033[0m";
-/run-clang-tidy-asynqro.py  -header-filter='.*(h|cpp)$' -checks="$CLANG_TIDY_CHECKS" -j$THREADS_COUNT -quiet > $ERRORS_FILE;
+/run-clang-tidy-asynqro.py  -header-filter='.*(h|cpp)$' -checks="$CLANG_TIDY_CHECKS" -j$THREADS_COUNT -quiet > $ERRORS_FILE || true;
 
 FOUND=1;
 if [ ! -f "$ERRORS_FILE" ]; then
