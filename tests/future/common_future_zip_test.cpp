@@ -206,6 +206,42 @@ TEST_F(FutureZipTest, zipDifferentFailuresFails)
     EXPECT_DOUBLE_EQ(2.0, std::get<double>(future.failureReason()));
 }
 
+TEST_F(FutureZipTest, zipDifferentFailuresFailsFirst)
+{
+    TestPromise<int> firstPromise;
+    Promise<double, int> secondPromise;
+    Promise<double, double> thirdPromise;
+    Future<std::tuple<int, double, double>, std::variant<std::string, int, double>> future =
+        createFuture(firstPromise).zip(secondPromise.future()).zip(thirdPromise.future());
+    EXPECT_FALSE(future.isSucceeded());
+    secondPromise.success(5.0);
+    EXPECT_FALSE(future.isSucceeded());
+    thirdPromise.success(42);
+    EXPECT_FALSE(future.isSucceeded());
+    firstPromise.failure("failed");
+
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_TRUE(future.isFailed());
+    EXPECT_FALSE(future.isSucceeded());
+    EXPECT_EQ("failed", std::get<std::string>(future.failureReason()));
+}
+
+TEST_F(FutureZipTest, zipDifferentFailuresFailsFirstQuick)
+{
+    TestPromise<int> firstPromise;
+    Promise<double, int> secondPromise;
+    Promise<double, double> thirdPromise;
+    Future<std::tuple<int, double, double>, std::variant<std::string, int, double>> future =
+        createFuture(firstPromise).zip(secondPromise.future()).zip(thirdPromise.future());
+    EXPECT_FALSE(future.isSucceeded());
+    firstPromise.failure("failed");
+
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_TRUE(future.isFailed());
+    EXPECT_FALSE(future.isSucceeded());
+    EXPECT_EQ("failed", std::get<std::string>(future.failureReason()));
+}
+
 TEST_F(FutureZipTest, zipViaOperator)
 {
     TestPromise<int> firstPromise;
