@@ -35,6 +35,8 @@
 
 #ifdef ASYNQRO_QT_SUPPORT
 #    include <QCoreApplication>
+#    include <QFuture>
+#    include <QFutureWatcher>
 #    include <QThread>
 #endif
 
@@ -604,6 +606,40 @@ public:
             QObject::disconnect(*deathConn);
         });
         return result;
+    }
+
+    template <typename OtherT>
+    static Future<T, FailureT> fromQtFuture(const QFuture<OtherT> &other)
+    {
+        QFutureWatcher<OtherT> *watcher = new QFutureWatcher<OtherT>;
+        Future<T, FailureT> future = Future<T, FailureT>::create();
+        auto cleaner = [watcher]() { watcher->deleteLater(); };
+        if (qApp)
+            watcher->moveToThread(qApp->thread());
+        if constexpr (std::is_convertible_v<OtherT, T>) {
+            QObject::connect(watcher, &QFutureWatcherBase::finished, watcher, [cleaner, future, watcher]() {
+                future.fillSuccess(watcher->result());
+                cleaner();
+            });
+        } else if constexpr (std::is_void_v<OtherT> || std::is_same_v<T, bool>) { // NOLINT(readability-misleading-indentation)
+            static_assert(std::is_same_v<T, bool>, "QFuture<void> can be casted only to Future<bool, _>");
+            QObject::connect(watcher, &QFutureWatcherBase::finished, watcher, [cleaner, future]() {
+                future.fillSuccess(true);
+                cleaner();
+            });
+        } else if constexpr (detail::HasTypeParams_V<T> && std::is_convertible_v<OtherT, detail::InnerType_T<T>>) { // NOLINT(readability-misleading-indentation)
+            QObject::connect(watcher, &QFutureWatcherBase::finished, watcher, [cleaner, future, watcher]() {
+                future.fillSuccess(traverse::map(watcher->future().results(), [](const OtherT &x) { return x; }, T()));
+                cleaner();
+            });
+        } else { // NOLINT(readability-misleading-indentation)
+            static_assert((detail::HasTypeParams_V<T> && std::is_convertible_v<OtherT, detail::InnerType_T<T>>)
+                              || std::is_same_v<T, bool> || std::is_convertible_v<OtherT, T>,
+                          "No possible conversion from QFuture to Future was found.");
+        }
+
+        QMetaObject::invokeMethod(watcher, [watcher, other] { watcher->setFuture(other); });
+        return future;
     }
 #endif
 

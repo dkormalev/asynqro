@@ -13,7 +13,7 @@ Asynqro is a small library with purpose to make C++ programming easier by giving
 - **CMake** `>= 3.12.0`
 - **GoogleTest**. Will be automatically downloaded during cmake phase
 - **lcov** `>= 1.14`. Used for code coverage calculation, not needed for regular build
-- Optional **Qt5** `>= 5.6`. It is not required though and by default asynqro is built without Qt support. There is no Qt dependency in library itself, but enabling it brings support for Qt containers, adds `Future::fromQtSignal()` and `Future::wait()` becomes guithread-aware.
+- Optional **Qt5** `>= 5.10`. It is not required though and by default asynqro is built without Qt support. There is no Qt dependency in library itself, but enabling it brings support for Qt containers, adds `Future::fromQtSignal()` and `Future::fromQtFuture()`. Also `Future::wait()` becomes guithread-aware.
 
 Asynqro has two main parts:
 - Future/Promise
@@ -61,6 +61,11 @@ if higher-order method is called on already filled Future it will be called (in 
 - `successful` - `T->Future<T, FailureType>` creates new Future object filled as successful with provided value
 - `failed` - `FailureType->Future<T, FailureType>` creates new Future object filled as failed with provided reason
 - `fromQtSignal` - `(QObject, Signal)->Future<T, FailureType>` creates new Future object that will be filled when signal emits. `T` here should be either bool or same type as signal parameter (if signal has more than one parameter `T` should be `std::tuple`)
+- `fromQtFuture` - `QFuture<OtherT>->Future<T, FailureType>` creates new Future object that will be filled with QFuture result. `OtherT` and `T` must follow next rules:
+  - if `OtherT` is `void` then `T` must be `bool`
+  - if `T` is `bool` and `OtherT` is not convertible to `bool` then result will always be `true`
+  - if `T` is a container of `OtherT` all results from QFuture will be used
+  - if nothing above is true then `OtherT` must be convertible to `T` and in this case first result from QFuture will be used
 - `wait` - waits for Future to be filled (either as successful or as failed) if it is not yet filled with optional timeout
 - `isCompleted`/`isFailed`/`isSucceeded` - returns current state of Future
 - `result`/`resultRef`/`failureReason` - returns result of Future or failure reason. Will wait for Future to be filled if it isn't already.

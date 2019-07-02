@@ -82,7 +82,8 @@ set_target_properties(asynqro PROPERTIES
 
 if (ASYNQRO_QT_SUPPORT)
     find_package(Qt5Core CONFIG REQUIRED)
-    target_link_libraries(asynqro INTERFACE Qt5::Core)
+    find_package(Qt5Concurrent CONFIG REQUIRED)
+    target_link_libraries(asynqro INTERFACE Qt5::Core Qt5::Concurrent)
     target_compile_definitions(asynqro INTERFACE ASYNQRO_QT_SUPPORT)
     message("-- asynqro: Building with Qt support")
 endif()

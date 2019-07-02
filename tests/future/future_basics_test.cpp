@@ -2,6 +2,7 @@
 
 #ifdef ASYNQRO_QT_SUPPORT
 #    include <QCoreApplication>
+#    include <QtConcurrent>
 
 class TestQObject : public QObject
 {
@@ -147,6 +148,405 @@ TEST_F(FutureBasicsTest, fromQtSignalDestroyed)
     EXPECT_FALSE(f.isSucceeded());
     EXPECT_TRUE(f.isFailed());
     EXPECT_EQ("Destroyed", f.failureReason());
+}
+
+TEST_F(FutureBasicsTest, fromQtFutureInt)
+{
+    int argc = 0;
+    char **argv = new char *[0];
+    {
+        QCoreApplication a(argc, argv);
+        {
+            std::atomic_bool start{false};
+            QFuture<int> qFuture = QtConcurrent::run([&start]() {
+                while (!start) {
+                }
+                return 5;
+            });
+            TestFuture<int> f = TestFuture<int>::fromQtFuture(qFuture);
+            ASSERT_FALSE(f.isCompleted());
+            start = true;
+            QTime timer;
+            timer.start();
+            while (!f.isCompleted() && timer.elapsed() < 10000)
+                QCoreApplication::processEvents();
+            ASSERT_TRUE(f.isCompleted());
+            EXPECT_TRUE(f.isSucceeded());
+            EXPECT_FALSE(f.isFailed());
+            EXPECT_EQ(5, f.result());
+        }
+        QTime timer;
+        timer.start();
+        while (instantFuturesUsage() && timer.elapsed() < 10000)
+            QCoreApplication::processEvents();
+    }
+    delete[] argv;
+}
+
+TEST_F(FutureBasicsTest, fromQtFutureBool)
+{
+    int argc = 0;
+    char **argv = new char *[0];
+    {
+        QCoreApplication a(argc, argv);
+        {
+            std::atomic_bool start{false};
+            QFuture<bool> qFuture = QtConcurrent::run([&start]() {
+                while (!start) {
+                }
+                return false;
+            });
+            TestFuture<bool> f = TestFuture<bool>::fromQtFuture(qFuture);
+            ASSERT_FALSE(f.isCompleted());
+            start = true;
+            QTime timer;
+            timer.start();
+            while (!f.isCompleted() && timer.elapsed() < 10000)
+                QCoreApplication::processEvents();
+            ASSERT_TRUE(f.isCompleted());
+            EXPECT_TRUE(f.isSucceeded());
+            EXPECT_FALSE(f.isFailed());
+            EXPECT_FALSE(f.result());
+        }
+        QTime timer;
+        timer.start();
+        while (instantFuturesUsage() && timer.elapsed() < 10000)
+            QCoreApplication::processEvents();
+    }
+    delete[] argv;
+}
+
+TEST_F(FutureBasicsTest, fromQtFutureVoid)
+{
+    int argc = 0;
+    char **argv = new char *[0];
+    {
+        QCoreApplication a(argc, argv);
+        {
+            std::atomic_bool start{false};
+            QFuture<void> qFuture = QtConcurrent::run([&start]() {
+                while (!start) {
+                }
+            });
+            TestFuture<bool> f = TestFuture<bool>::fromQtFuture(qFuture);
+            ASSERT_FALSE(f.isCompleted());
+            start = true;
+            QTime timer;
+            timer.start();
+            while (!f.isCompleted() && timer.elapsed() < 10000)
+                QCoreApplication::processEvents();
+            ASSERT_TRUE(f.isCompleted());
+            EXPECT_TRUE(f.isSucceeded());
+            EXPECT_FALSE(f.isFailed());
+            EXPECT_TRUE(f.result());
+        }
+        QTime timer;
+        timer.start();
+        while (instantFuturesUsage() && timer.elapsed() < 10000)
+            QCoreApplication::processEvents();
+    }
+    delete[] argv;
+}
+
+TEST_F(FutureBasicsTest, fromQtFutureIndirectBool)
+{
+    int argc = 0;
+    char **argv = new char *[0];
+    {
+        QCoreApplication a(argc, argv);
+        {
+            std::atomic_bool start{false};
+            QFuture<QString> qFuture = QtConcurrent::run([&start]() {
+                while (!start) {
+                }
+                return QString("test");
+            });
+            TestFuture<bool> f = TestFuture<bool>::fromQtFuture(qFuture);
+            ASSERT_FALSE(f.isCompleted());
+            start = true;
+            QTime timer;
+            timer.start();
+            while (!f.isCompleted() && timer.elapsed() < 10000)
+                QCoreApplication::processEvents();
+            ASSERT_TRUE(f.isCompleted());
+            EXPECT_TRUE(f.isSucceeded());
+            EXPECT_FALSE(f.isFailed());
+            EXPECT_TRUE(f.result());
+        }
+        QTime timer;
+        timer.start();
+        while (instantFuturesUsage() && timer.elapsed() < 10000)
+            QCoreApplication::processEvents();
+    }
+    delete[] argv;
+}
+
+TEST_F(FutureBasicsTest, fromQtFutureIntArray)
+{
+    int argc = 0;
+    char **argv = new char *[0];
+    {
+        QCoreApplication a(argc, argv);
+        {
+            std::atomic_bool start{false};
+            QFuture<int> qFuture = QtConcurrent::filtered(QVector{0, 1, 2, 3, 4}, [&start](int) {
+                while (!start) {
+                }
+                return true;
+            });
+            TestFuture<std::vector<int>> f = TestFuture<std::vector<int>>::fromQtFuture(qFuture);
+            ASSERT_FALSE(f.isCompleted());
+            start = true;
+            QTime timer;
+            timer.start();
+            while (!f.isCompleted() && timer.elapsed() < 10000)
+                QCoreApplication::processEvents();
+            ASSERT_TRUE(f.isCompleted());
+            EXPECT_TRUE(f.isSucceeded());
+            EXPECT_FALSE(f.isFailed());
+            auto result = f.result();
+            ASSERT_EQ(5, result.size());
+            for (size_t i = 0; i < result.size(); ++i)
+                EXPECT_EQ(i, result[i]);
+        }
+        QTime timer;
+        timer.start();
+        while (instantFuturesUsage() && timer.elapsed() < 10000)
+            QCoreApplication::processEvents();
+    }
+    delete[] argv;
+}
+
+TEST_F(FutureBasicsTest, fromQtFutureIntFromOtherThread)
+{
+    int argc = 0;
+    char **argv = new char *[0];
+    {
+        QCoreApplication a(argc, argv);
+        {
+            TestFuture<int> f;
+            std::atomic_bool start{false};
+            std::atomic_bool prepared{false};
+            std::atomic_bool done{false};
+            std::thread([&f, &start, &done, &prepared]() {
+                QFuture<int> qFuture = QtConcurrent::run([&start]() {
+                    while (!start) {
+                    }
+                    return 5;
+                });
+                f = TestFuture<int>::fromQtFuture(qFuture);
+                prepared = true;
+                while (!done) {
+                }
+            })
+                .detach();
+
+            while (!prepared) {
+            }
+            ASSERT_FALSE(f.isCompleted());
+            start = true;
+            QTime timer;
+            timer.start();
+            while (!f.isCompleted() && timer.elapsed() < 10000)
+                QCoreApplication::processEvents();
+            ASSERT_TRUE(f.isCompleted());
+            done = true;
+            EXPECT_TRUE(f.isSucceeded());
+            EXPECT_FALSE(f.isFailed());
+            EXPECT_EQ(5, f.result());
+        }
+        QTime timer;
+        timer.start();
+        while (instantFuturesUsage() && timer.elapsed() < 10000)
+            QCoreApplication::processEvents();
+    }
+    delete[] argv;
+}
+
+TEST_F(FutureBasicsTest, fromQtFutureBoolFromOtherThread)
+{
+    int argc = 0;
+    char **argv = new char *[0];
+    {
+        QCoreApplication a(argc, argv);
+        {
+            TestFuture<bool> f;
+            std::atomic_bool start{false};
+            std::atomic_bool prepared{false};
+            std::atomic_bool done{false};
+            std::thread([&f, &start, &done, &prepared]() {
+                QFuture<bool> qFuture = QtConcurrent::run([&start]() {
+                    while (!start) {
+                    }
+                    return false;
+                });
+                f = TestFuture<bool>::fromQtFuture(qFuture);
+                prepared = true;
+                while (!done) {
+                }
+            })
+                .detach();
+
+            while (!prepared) {
+            }
+            ASSERT_FALSE(f.isCompleted());
+            start = true;
+            QTime timer;
+            timer.start();
+            while (!f.isCompleted() && timer.elapsed() < 10000)
+                QCoreApplication::processEvents();
+            ASSERT_TRUE(f.isCompleted());
+            done = true;
+            EXPECT_TRUE(f.isSucceeded());
+            EXPECT_FALSE(f.isFailed());
+            EXPECT_FALSE(f.result());
+        }
+        QTime timer;
+        timer.start();
+        while (instantFuturesUsage() && timer.elapsed() < 10000)
+            QCoreApplication::processEvents();
+    }
+    delete[] argv;
+}
+
+TEST_F(FutureBasicsTest, fromQtFutureVoidFromOtherThread)
+{
+    int argc = 0;
+    char **argv = new char *[0];
+    {
+        QCoreApplication a(argc, argv);
+        {
+            TestFuture<bool> f;
+            std::atomic_bool start{false};
+            std::atomic_bool prepared{false};
+            std::atomic_bool done{false};
+            std::thread([&f, &start, &done, &prepared]() {
+                QFuture<void> qFuture = QtConcurrent::run([&start]() {
+                    while (!start) {
+                    }
+                });
+                f = TestFuture<bool>::fromQtFuture(qFuture);
+                prepared = true;
+                while (!done) {
+                }
+            })
+                .detach();
+
+            while (!prepared) {
+            }
+            ASSERT_FALSE(f.isCompleted());
+            start = true;
+            QTime timer;
+            timer.start();
+            while (!f.isCompleted() && timer.elapsed() < 10000)
+                QCoreApplication::processEvents();
+            ASSERT_TRUE(f.isCompleted());
+            done = true;
+            EXPECT_TRUE(f.isSucceeded());
+            EXPECT_FALSE(f.isFailed());
+            EXPECT_TRUE(f.result());
+        }
+        QTime timer;
+        timer.start();
+        while (instantFuturesUsage() && timer.elapsed() < 10000)
+            QCoreApplication::processEvents();
+    }
+    delete[] argv;
+}
+
+TEST_F(FutureBasicsTest, fromQtFutureIndirectBoolFromOtherThread)
+{
+    int argc = 0;
+    char **argv = new char *[0];
+    {
+        QCoreApplication a(argc, argv);
+        {
+            TestFuture<bool> f;
+            std::atomic_bool start{false};
+            std::atomic_bool prepared{false};
+            std::atomic_bool done{false};
+            std::thread([&f, &start, &done, &prepared]() {
+                QFuture<QString> qFuture = QtConcurrent::run([&start]() {
+                    while (!start) {
+                    }
+                    return QString("test");
+                });
+                f = TestFuture<bool>::fromQtFuture(qFuture);
+                prepared = true;
+                while (!done) {
+                }
+            })
+                .detach();
+
+            while (!prepared) {
+            }
+            ASSERT_FALSE(f.isCompleted());
+            start = true;
+            QTime timer;
+            timer.start();
+            while (!f.isCompleted() && timer.elapsed() < 10000)
+                QCoreApplication::processEvents();
+            ASSERT_TRUE(f.isCompleted());
+            done = true;
+            EXPECT_TRUE(f.isSucceeded());
+            EXPECT_FALSE(f.isFailed());
+            EXPECT_TRUE(f.result());
+        }
+        QTime timer;
+        timer.start();
+        while (instantFuturesUsage() && timer.elapsed() < 10000)
+            QCoreApplication::processEvents();
+    }
+    delete[] argv;
+}
+
+TEST_F(FutureBasicsTest, fromQtFutureIntArrayFromOtherThread)
+{
+    int argc = 0;
+    char **argv = new char *[0];
+    {
+        QCoreApplication a(argc, argv);
+        {
+            TestFuture<std::vector<int>> f;
+            std::atomic_bool start{false};
+            std::atomic_bool prepared{false};
+            std::atomic_bool done{false};
+            std::thread([&f, &start, &done, &prepared]() {
+                QFuture<int> qFuture = QtConcurrent::filtered(QVector{0, 1, 2, 3, 4}, [&start](int) {
+                    while (!start) {
+                    }
+                    return true;
+                });
+                f = TestFuture<std::vector<int>>::fromQtFuture(qFuture);
+                prepared = true;
+                while (!done) {
+                }
+            })
+                .detach();
+
+            while (!prepared) {
+            }
+            ASSERT_FALSE(f.isCompleted());
+            start = true;
+            QTime timer;
+            timer.start();
+            while (!f.isCompleted() && timer.elapsed() < 10000)
+                QCoreApplication::processEvents();
+            ASSERT_TRUE(f.isCompleted());
+            done = true;
+            EXPECT_TRUE(f.isSucceeded());
+            EXPECT_FALSE(f.isFailed());
+            auto result = f.result();
+            ASSERT_EQ(5, result.size());
+            for (size_t i = 0; i < result.size(); ++i)
+                EXPECT_EQ(i, result[i]);
+        }
+        QTime timer;
+        timer.start();
+        while (instantFuturesUsage() && timer.elapsed() < 10000)
+            QCoreApplication::processEvents();
+    }
+    delete[] argv;
 }
 #endif
 
