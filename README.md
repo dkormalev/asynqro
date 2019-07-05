@@ -9,15 +9,15 @@
 Asynqro is a small library with purpose to make C++ programming easier by giving developers rich monadic Future API (mostly inspired by Future API in Scala language). This library is another implementation of ideas in https://github.com/opensoft/proofseed (now moved to asynqro usage, for historic purposes check tags before 02/25/19), but has much cleaner API, refined task scheduling logic and is not tied to any framework.
 
 ### Dependencies
-- **C++17**: tested with Clang8 (travis), GCC8 (travis) and MSVC17 (appveyor)
+- **C++17**: tested with Clang8 ([travis](https://travis-ci.com/dkormalev/asynqro)), GCC8 ([travis](https://travis-ci.com/dkormalev/asynqro)) and MSVC17 ([appveyor](https://ci.appveyor.com/project/dkormalev/asynqro))
 - **CMake** `>= 3.12.0`
 - **GoogleTest**. Will be automatically downloaded during cmake phase
 - **lcov** `>= 1.14`. Used for code coverage calculation, not needed for regular build
 - Optional **Qt5** `>= 5.10`. It is not required though and by default asynqro is built without Qt support. There is no Qt dependency in library itself, but enabling it brings support for Qt containers, adds `Future::fromQtSignal()` and `Future::fromQtFuture()`. Also `Future::wait()` becomes guithread-aware.
 
 Asynqro has two main parts:
-- Future/Promise
-- Tasks scheduling
+- [Future/Promise](#future-promise)
+- [Tasks scheduling](#tasks-scheduling)
 
 ## Future/Promise
 There are already a lot of implementations of Future mechanism in C++:
@@ -31,9 +31,11 @@ There are already a lot of implementations of Future mechanism in C++:
 So why not to create another one?
 
 Future-related part of asynqro contains next classes:
-- `Promise`
-- `Future`
-- `CancelableFuture`
+- [Promise](#promise)
+- [Future](#future)
+- [CancelableFuture](#cancelablefuture)
+- [WithFailure](#withfailure)
+- [Trampoline](#trampoline)
 
 All classes are reentrant and thread-safe.
 
@@ -97,7 +99,7 @@ All CancelableFuture methods return simple Future to prevent possible cancelatio
 It is possible to fail any transformation by using `WithFailure` helper struct.
 ```cpp
 Future<int, std::string> f = /*...*/;
-f.flatMap([](int x) -> Future<int> {
+f.flatMap([](int x) -> Future<int, std::string> {
   if (shouldNotPass(x))
     return WithFailure<std::string>("You shall not pass!");
   else
@@ -115,6 +117,20 @@ f.flatMap([](int x) -> Future<int> {
 });
 ```
 This structure **SHOULD NOT** be saved anyhow and should be used only as a helper to return failure. Implicit casting operator will move from stored failure.
+
+### Trampoline
+Using `map()` and other blocking transformations is something where we expect that stack can overflow, because we know that it will be called immediately each after another.
+
+Although, for `flatMap()` or `andThen()` it is definitely not something one can expect due to its pseudo-asynchronous nature. But, in case of lots of flatMaps, it will still overflow on backward filling when last Future is filled. 
+
+To avoid such behavior `Trampoline` struct can be used anywhere where Future return is expected. It wraps a Future with extra transformation which will make sure that stack will be reset by moving it to another thread from `Intensive` thread pool. 
+
+```cpp
+Future<int, std::string> f = /*...*/;
+f.flatMap([](int x) -> Future<int, std::string> {
+    return Trampoline(asyncCalculation(x));
+});
+```
 
 ## Tasks scheduling
 The same as with futures, there are lots of implementations of task scheduling:
@@ -144,7 +160,7 @@ Task scheduling engine should be not only rich in its API but also has good perf
 
 Tests were run few times for each solution on i7 with 4 cores+HT. Smallest one was chosen for each case.
 
-Intensive and ThreadBound mean what type of scheduling was used in this suite. In ThreadBound tasks were assigned to amount of cores not bigger than number of logic cores. All asynqro benchmarks in this section use `runAndForget` function because we don't really need resulting Future. For Future usage overhead please see **Futures usage overhead** section below.
+Intensive and ThreadBound mean what type of scheduling was used in this suite. In ThreadBound tasks were assigned to amount of cores not bigger than number of logic cores. All asynqro benchmarks in this section use `runAndForget` function because we don't really need resulting Future. For Future usage overhead please see [Futures usage overhead](#futures-usage-overhead) section below.
 
 These benchmarks are synthetical and it is not an easy thing to properly benchmark such thing as task scheduling especially due to non-exclusive owning of CPU, non-deterministic nature of spinlocks and other stuff, but at least it can be used to say with some approximation how big overhead is gonna be under different amount of load.
 
@@ -226,7 +242,7 @@ Intensive, with futures | 195.451 | 1943.28
 ThreadBound, no futures | 94.9389 | 931.258
 ThreadBound, with futures | 181.489 | 1869.79
 
-### timed-avalanche with 0.1ms
+### timed-avalanche with `0.1ms`
 Flavor/Jobs             | 10000   | 100000
 ----------------------- | ------- | --------
 Intensive, no futures | 11.8109 | 64.3695
@@ -234,7 +250,7 @@ Intensive, with futures | 14.7544 | 298.561
 ThreadBound, no futures | 2.95714 | 20.1497
 ThreadBound, with futures | 5.2423  | 37.5535
 
-### empty-repost with 100k tasks
+### empty-repost with `100k` tasks
 Flavor/Concurrency      | 1 | 4 | 8 | 16
 ----------------------- | - | - | - | ---
 Intensive, no futures | 122.806 | 526.092 | 1671.87 | 3414.7
@@ -242,7 +258,7 @@ Intensive, with futures | 302.854 | 545.561 | 1705.33 | 3650.32
 ThreadBound, no futures | 32.0795 | 196.733 | 780.659 | 974.038
 ThreadBound, with futures | 64.0556 | 171.66 | 520.588 | 768.036
 
-### empty-repost with 1kk tasks
+### empty-repost with `1kk` tasks
 Flavor/Concurrency      | 1 | 4 | 8 | 16
 ----------------------- | - | - | - | ---
 Intensive, no futures | 1195.36 | 5246.65 | 17682.6 | 33589
@@ -250,7 +266,7 @@ Intensive, with futures | 2816.33 | 5351.31 | 17028.6 | 36146.4
 ThreadBound, no futures | 317.3 | 1968.22 | 6861.81 | 9625.58
 ThreadBound, with futures | 664.155 | 1779.41 | 5361.86 | 8048.08
 
-### timed-repost with 10k tasks of 0.1ms each
+### timed-repost with `10k` tasks of `0.1ms` each
 Flavor/Concurrency      | 1 | 4 | 8 | 16
 ----------------------- | - | - | - | ---
 Intensive, no futures | 24.5251 | 24.6166 | 20.0933 | 37.4036
@@ -258,7 +274,7 @@ Intensive, with futures | 33.1252 | 39.9258 | 29.6381 | 51.7628
 ThreadBound, no futures | 4.03977 | 5.34057 | 16.3515 | 23.1206
 ThreadBound, with futures | 7.89128 | 10.787 | 18.1974 | 32.0577
 
-### timed-repost with 100k tasks of 0.1ms each
+### timed-repost with `100k` tasks of `0.1ms` each
 Flavor/Concurrency      | 1 | 4 | 8 | 16
 ----------------------- | - | - | - | ---
 Intensive, no futures | 247.519 | 243.835 | 167.819 | 301.238

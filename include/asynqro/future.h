@@ -95,6 +95,9 @@ struct FutureData
 } // namespace detail
 
 template <typename T, typename FailureT>
+struct Trampoline;
+
+template <typename T, typename FailureT>
 class Future
 {
     static_assert(!std::is_same_v<T, void>, "Future<void, _> is not allowed. Use Future<bool, _> instead");
@@ -106,6 +109,7 @@ class Future
     friend struct WithFailure<FailureT>;
     template <typename... U>
     friend class CancelableFuture;
+    friend struct Trampoline<T, FailureT>;
 
 public:
     using Value = T;

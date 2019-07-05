@@ -31,7 +31,8 @@
 
 #include <cmath>
 
-namespace asynqro::tasks {
+namespace asynqro {
+namespace tasks {
 namespace detail {
 using namespace asynqro::detail;
 
@@ -218,7 +219,26 @@ ResultFuture clusteredRun(C &&data, Task &&f, int64_t minClusterSize = 1, TaskTy
         },
         type, tag, priority);
 }
+} // namespace tasks
 
-} // namespace asynqro::tasks
+template <typename T, typename FailureT>
+struct Trampoline
+{
+    explicit Trampoline(Future<T, FailureT> f = Future<T, FailureT>()) noexcept { m_future = std::move(f); }
+    operator Future<T, FailureT>() noexcept // NOLINT(google-explicit-constructor)
+    {
+        Future<T, FailureT> result = Future<T, FailureT>::create();
+        m_future
+            .onSuccess([result](const T &v) noexcept { tasks::runAndForget([result, v] { result.fillSuccess(v); }); })
+            .onFailure([result](const FailureT &f) noexcept {
+                tasks::runAndForget([result, f] { result.fillFailure(f); });
+            });
+        return result;
+    }
+
+private:
+    Future<T, FailureT> m_future;
+};
+} // namespace asynqro
 
 #endif // ASYNQRO_TASKS_H

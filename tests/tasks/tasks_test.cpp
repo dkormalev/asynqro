@@ -7,6 +7,8 @@ using namespace std::chrono_literals;
 class TasksTest : public TasksBaseTest
 {};
 
+using TasksDeathTest = TasksTest;
+
 struct ConvertingRunnerInfo
 {
     using PlainFailure = int;
@@ -470,4 +472,47 @@ TEST_F(TasksTest, mappedTaskWithFailure)
     ASSERT_TRUE(mappedFuture.isFailed());
     EXPECT_EQ(0, mappedFuture.result());
     EXPECT_EQ("42", mappedFuture.failureReason());
+}
+
+TestFuture<int> deepRecursion(int step, int limit)
+{
+    auto result = run([step] { return step; });
+    if (step >= limit)
+        return result;
+    return result.flatMap([limit](int x) -> TestFuture<int> { return (deepRecursion(x + 1, limit)); });
+}
+
+TestFuture<int> deepRecursionTrampolined(int step, int limit)
+{
+    auto result = run([step] { return step; });
+    if (step >= limit)
+        return result;
+    return result.flatMap(
+        [limit](int x) -> TestFuture<int> { return Trampoline(deepRecursionTrampolined(x + 1, limit)); });
+}
+
+constexpr int DEEP_RECURSION_LIMIT = 300000;
+
+TEST_F(TasksDeathTest, deepRecursionNoTrampoline)
+{
+    testing::FLAGS_gtest_death_test_style = "threadsafe";
+    EXPECT_DEATH(deepRecursion(0, DEEP_RECURSION_LIMIT).wait(), ".*");
+}
+
+TEST_F(TasksTest, deepRecursionWithTrampoline)
+{
+    auto f = deepRecursionTrampolined(0, DEEP_RECURSION_LIMIT);
+    f.wait();
+}
+
+TEST_F(TasksTest, trampolineFailure)
+{
+    TestPromise<int> p;
+    auto f = TestFuture<int>::successful(5).flatMap([p](int x) -> TestFuture<int> { return Trampoline(p.future()); });
+    EXPECT_FALSE(f.isCompleted());
+    p.failure("failed");
+    f.wait();
+    ASSERT_TRUE(f.isCompleted());
+    ASSERT_TRUE(f.isFailed());
+    EXPECT_EQ("failed", f.failureReason());
 }
