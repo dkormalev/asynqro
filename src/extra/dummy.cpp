@@ -23,12 +23,14 @@
  *
  */
 #include "asynqro/future.h"
+#include "asynqro/repeat.h"
 #include "asynqro/simplefuture.h"
 #include "asynqro/tasks.h"
 
 #include <vector>
 
 using namespace asynqro;
+using namespace asynqro::repeater;
 
 namespace {
 auto f = Future<int, int>::successful(5).andThenValue(25.0);
@@ -40,6 +42,7 @@ auto f2 = p.future()
               .map([](auto) { return 5; })
               .filter([](auto) { return true; })
               .flatMap([](auto) { return f; })
+              .flatMap([](auto) -> decltype(f) { return Trampoline(f); })
               .andThen([]() { return f; })
               .mapFailure([](auto fail) { return fail; });
 auto r = f2.zip(tasks::run([]() { int x = 5 + 2; })).zipValue(5).result();
@@ -58,4 +61,52 @@ auto sf1 = simple::successful(5);
 auto sf2 = simple::successful(5);
 auto sf3 = simple::sequence(std::vector{sf1, sf2});
 auto sf4 = simple::sequenceWithFailures(std::vector{sf1, sf2});
+
+auto rf1 = repeat<int, std::string>(
+    [](int x) -> RepeaterResult<int, int> {
+        if (x % 42)
+            return Continue(x + 1);
+        if (x % 21)
+            return Continue(x);
+        return Finish(x);
+    },
+    1);
+
+auto rf2 = repeat<int, std::string>(
+    [](int x) -> RepeaterFutureResult<int, std::string, int> {
+        if (x % 42)
+            return tasks::run([x]() -> RepeaterResult<int, int> {
+                if (x % 42)
+                    return Continue(x + 1);
+                return Continue(x);
+            });
+        return RepeaterFutureResult<int, std::string, int>::successful(42);
+    },
+    1);
+
+auto rf3 = repeat<int, std::string>(
+    [](int x) -> RepeaterFutureResult<int, std::string, int> {
+        if (x % 42)
+            return tasks::run([x]() -> RepeaterResult<int, int> {
+                if (x % 42)
+                    return TrampolinedContinue(x + 1);
+                return TrampolinedContinue(x);
+            });
+        return RepeaterFutureResult<int, std::string, int>::successful(42);
+    },
+    1);
+
+auto rf4 = repeatForSequence(std::vector{0, 1, 2}, 0.0,
+                             [](int x, double result) { return Future<double, std::string>::successful(result + x); });
+
+auto srf1 = simple::repeat<int>(
+    [](double x, double y) -> RepeaterResult<int, double, double> {
+        if (x < y)
+            return Continue(x + 1.0, y);
+        if (x > y)
+            return Continue(x, y);
+        return Finish(static_cast<int>(x));
+    },
+    1.0, 2.0);
+
 } // namespace

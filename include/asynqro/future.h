@@ -66,7 +66,7 @@ void ASYNQRO_EXPORT decrementFuturesUsage();
 template <typename T, typename FailureT>
 struct FutureData
 {
-    FutureData()
+    FutureData() // NOLINT(modernize-use-equals-default)
     {
 #ifdef ASYNQRO_DEBUG_COUNT_OBJECTS
         incrementFuturesUsage();
@@ -76,7 +76,7 @@ struct FutureData
     FutureData(FutureData<T, FailureT> &&) = delete;
     FutureData<T, FailureT> &operator=(const FutureData<T, FailureT> &) = delete;
     FutureData<T, FailureT> &operator=(FutureData<T, FailureT> &&) = delete;
-    ~FutureData()
+    ~FutureData() // NOLINT(modernize-use-equals-default)
     {
 #ifdef ASYNQRO_DEBUG_COUNT_OBJECTS
         decrementFuturesUsage();

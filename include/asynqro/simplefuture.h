@@ -86,6 +86,12 @@ auto sequenceWithFailures(Container &&container) noexcept
 {
     return Future<T>::template sequenceWithFailures<ResultContainer>(std::forward<Container>(container));
 }
+
+template <typename T, typename Func, typename... Args>
+Future<T> repeat(Func &&f, Args &&... args) noexcept
+{
+    return asynqro::repeat<T, std::any>(std::forward<Func>(f), std::forward<Args>(args)...);
+}
 } // namespace simple
 } // namespace asynqro
 

@@ -40,6 +40,7 @@ if (ASYNQRO_BUILD_WITH_GCOV)
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} --coverage")
     set(CMAKE_CXX_OUTPUT_EXTENSION_REPLACE ON)
     set(ASYNQRO_BUILD_TESTS ON)
+    target_compile_definitions(asynqro PUBLIC ASYNQRO_GCOV_ENABLED)
 endif()
 
 add_library(asynqro
@@ -51,6 +52,7 @@ add_library(asynqro
     include/asynqro/future.h
     include/asynqro/simplefuture.h
     include/asynqro/tasks.h
+    include/asynqro/repeat.h
     include/asynqro/impl/promise.h
     include/asynqro/impl/cancelablefuture.h
     include/asynqro/impl/failure_handling.h

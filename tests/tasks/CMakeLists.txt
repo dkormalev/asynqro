@@ -7,6 +7,7 @@ set(TASKS_TESTS_SOURCES
     tasks_sequence_test.cpp
     tasks_test.cpp
     tasks_threadbound_test.cpp
+    repeat_test.cpp
     tasksbasetest.h
 )
 

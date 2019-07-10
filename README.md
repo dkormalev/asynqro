@@ -30,12 +30,13 @@ There are already a lot of implementations of Future mechanism in C++:
 
 So why not to create another one?
 
-Future-related part of asynqro contains next classes:
+Future-related part of asynqro contains:
 - [Promise](#promise)
 - [Future](#future)
 - [CancelableFuture](#cancelablefuture)
 - [WithFailure](#withfailure)
 - [Trampoline](#trampoline)
+- [repeat() and repeatForSequence() helpers](#repeat-helpers)
 
 All classes are reentrant and thread-safe.
 
@@ -132,6 +133,17 @@ f.flatMap([](int x) -> Future<int, std::string> {
 });
 ```
 
+## Repeat Helpers
+Header `asynqro/repeat.h` contains `asynqro::repeat()` function that allows to do while-loop-styled calls to user function that can return either data or future with this data. User function should return either `Continue` with new set of arguments or `Finish` with final result.
+
+Typical use case for `repeat()` is when it is needed to process something in serial manner, but do so using `Future` mechanism. 
+
+`repeat()` signature can be:
+ - `((Args...->RepeaterResult<T, Args...>), Args...) -> Future<T, FailureT>` - this form passes `Args` to function while function returns `Continue` with new set of arguments. When function returns `Finish` invocation stops and `repeat()` itself returns `Future` filled with result. This form is blocking. It doesn't do any extra copies of arguments or result if function properly moves everything.
+ - `((Args...->RepeaterFutureResult<T, FailureT, Args...>), Args...) -> Future<T, FailureT>` - this form passes `Args` to function and expects Future in return. This Future can be filled either with `Finish` or `Continue` or `TrampolinedContinue`. Third option is the same as regular `Continue` but uses [Trampoline](#trampoline) inside to ensure that stack wouldn't be overflown. This form is non-blocking if function is non-blocking. It doesn't do any extra copies on top of what is done by `flatMap()`.
+ 
+In case when there is a container with data we need to pass to our function one by one in serial manner, it is better to use `repeatForSequence()`. It accepts container, initial value and `(Data, T)->Future<T, FailureT>` function, where first argument is element from container and second is previous result (or initial value in case of first element). `repeatForSequence()` function returns `Future<T, FailureT>` with either final result or first occurred failure (and will not proceed forward with container values after failed one).
+ 
 ## Tasks scheduling
 The same as with futures, there are lots of implementations of task scheduling:
 - `Boost.Asio` - Asio is much bigger than just scheduling, but it also provides thread pool with some API for running jobs in it

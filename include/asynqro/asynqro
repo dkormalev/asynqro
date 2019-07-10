@@ -1,2 +1,3 @@
 #include "asynqro/future.h"
 #include "asynqro/tasks.h"
+#include "asynqro/repeat.h"
