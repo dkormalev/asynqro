@@ -330,3 +330,33 @@ Future<bool, MyFailure> Worker::fetchData(QString username, QString password)
 }
 ```
 
+### Repeat
+We have some data that we need to send to our API and we want to do few retries before we decide that it is not possible to send it now.
+
+```cpp
+using DataSendRepeater = RepeaterFutureResult<bool, std::string, int>;
+Future<bool, std::string> Worker::sendData(Data data, int retries)
+{
+  return repeat<bool, int>([data](int retriesLeft) -> DataSendRepeater {
+    if (retries < 0)
+      return Future<bool, MyFailure>::failed("Too many retries");
+    return api->sendData(data)
+      .map([](bool result) -> DataSendRepeater::Value { return Finish(result); }
+      .recover([](const auto &) -> DataSendRepeater::Value { return TrampolinedContinue(retries - 1); };
+  }, retries);
+}
+```
+
+### Repeat for known sequence
+We have input sequence that we need to process serially in determined order. If error occurs during calculation - it will fastfail.
+
+```cpp
+Future<double, std::string> Worker::blackBox(int value, double accumulator);
+
+Future<double, std::string> Worker::calculate(std::vector<int> data)
+{
+  return repeatForSequence(data, 0.0, [](int x, double result) -> Future<double, std::string> {
+    return blackBox(x, result) >> [](double result){ return result < 0.0 ? 0.0 : result; };
+  });
+}
+```
