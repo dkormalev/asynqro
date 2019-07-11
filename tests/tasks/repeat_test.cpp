@@ -386,9 +386,9 @@ TEST_F(RepeatTest, repeatDataDeepNoTrampoline)
     EXPECT_EQ(DEEP_RECURSION_LIMIT * 10, f.result());
 }
 
-#ifndef ASYNQRO_GCOV_ENABLED
 TEST_F(RepeatDeathTest, repeatFutureDeepNoTrampoline)
 {
+#ifndef ASYNQRO_GCOV_ENABLED
     testing::FLAGS_gtest_death_test_style = "threadsafe";
     auto death = []() {
         TestPromise<RepeatedFutureResult::Value> promise;
@@ -403,8 +403,8 @@ TEST_F(RepeatDeathTest, repeatFutureDeepNoTrampoline)
         f.wait();
     };
     ASSERT_DEATH(death(), ".*");
-}
 #endif
+}
 
 TEST_F(RepeatTest, repeatFutureDeepWithOccasionalTrampoline)
 {

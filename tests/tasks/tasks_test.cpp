@@ -493,13 +493,13 @@ TestFuture<int> deepRecursionTrampolined(int step, int limit)
 
 constexpr int DEEP_RECURSION_LIMIT = 300000;
 
-#ifndef ASYNQRO_GCOV_ENABLED
 TEST_F(TasksDeathTest, deepRecursionNoTrampoline)
 {
+#ifndef ASYNQRO_GCOV_ENABLED
     testing::FLAGS_gtest_death_test_style = "threadsafe";
     EXPECT_DEATH(deepRecursion(0, DEEP_RECURSION_LIMIT).wait(), ".*");
-}
 #endif
+}
 
 TEST_F(TasksTest, deepRecursionWithTrampoline)
 {
