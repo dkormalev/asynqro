@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12.0)
-project(asynqro LANGUAGES CXX VERSION 0.2.0)
+project(asynqro LANGUAGES CXX VERSION 0.3.0)
 include(GenerateExportHeader)
 
 option(BUILD_SHARED_LIBS
