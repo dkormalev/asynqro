@@ -70,6 +70,11 @@ if(ASYNQRO_BUILD_WITH_DUMMY)
     target_sources(asynqro PRIVATE src/extra/dummy.cpp)
 endif()
 
+set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_package(Threads REQUIRED)
+target_link_libraries(asynqro PUBLIC Threads::Threads)
+
 add_library(asynqro::asynqro ALIAS asynqro)
 generate_export_header(asynqro EXPORT_FILE_NAME generated_include/asynqro/impl/asynqro_export.h)
 
