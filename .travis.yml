@@ -6,7 +6,6 @@ env:
    - CONAN_USERNAME: "dkormalev"
    - CONAN_UPLOAD: "https://api.bintray.com/conan/dkormalev/conan"
    - CONAN_BUILD_TYPES: "Release,Debug"
-   - CONAN_USE_DOCKER: 1
    - CONAN_UPLOAD_ONLY_WHEN_TAG: 1
    - CPT_TEST_FOLDER: "conan_tests"
 
@@ -60,26 +59,26 @@ jobs:
     name: Conan.io Linux/clang6
     language: python
     python: 3.7.1
-    env: CONAN_CLANG_VERSIONS=6.0 CONAN_DOCKER_IMAGE=conanio/clang60
+    env: CONAN_CLANG_VERSIONS=6.0 CONAN_DOCKER_IMAGE=conanio/clang60 CONAN_USE_DOCKER=1
     install:
       - .ci/conan/install.sh
     script:
       - .ci/conan/run.sh
   - <<: *conan
     name: Conan.io Linux/clang7
-    env: CONAN_CLANG_VERSIONS=7.0 CONAN_DOCKER_IMAGE=conanio/clang7
+    env: CONAN_CLANG_VERSIONS=7.0 CONAN_DOCKER_IMAGE=conanio/clang7 CONAN_USE_DOCKER=1
   - <<: *conan
     name: Conan.io Linux/clang8
-    env: CONAN_CLANG_VERSIONS=8 CONAN_DOCKER_IMAGE=conanio/clang8
+    env: CONAN_CLANG_VERSIONS=8 CONAN_DOCKER_IMAGE=conanio/clang8 CONAN_USE_DOCKER=1
   - <<: *conan
     name: Conan.io Linux/gcc7
-    env: CONAN_GCC_VERSIONS=7 CONAN_DOCKER_IMAGE=conanio/gcc7
+    env: CONAN_GCC_VERSIONS=7 CONAN_DOCKER_IMAGE=conanio/gcc7 CONAN_USE_DOCKER=1
   - <<: *conan
     name: Conan.io Linux/gcc8
-    env: CONAN_GCC_VERSIONS=8 CONAN_DOCKER_IMAGE=conanio/gcc8
+    env: CONAN_GCC_VERSIONS=8 CONAN_DOCKER_IMAGE=conanio/gcc8 CONAN_USE_DOCKER=1
   - <<: *conan
     name: Conan.io Linux/gcc9
-    env: CONAN_GCC_VERSIONS=9 CONAN_DOCKER_IMAGE=conanio/gcc9
+    env: CONAN_GCC_VERSIONS=9 CONAN_DOCKER_IMAGE=conanio/gcc9 CONAN_USE_DOCKER=1
 
   - <<: *conan
     name: Conan.io MacOSX/apple-clang10
