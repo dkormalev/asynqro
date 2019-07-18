@@ -10,10 +10,10 @@
 Asynqro is a small library with purpose to make C++ programming easier by giving developers rich monadic Future API (mostly inspired by Future API in Scala language). This library is another implementation of ideas in https://github.com/opensoft/proofseed (now moved to asynqro usage, for historic purposes check tags before 02/25/19), but has much cleaner API, refined task scheduling logic and is not tied to any framework.
 
 ### Dependencies
-- **C++17**: tested with Clang8 ([travis](https://travis-ci.com/dkormalev/asynqro)), GCC8 ([travis](https://travis-ci.com/dkormalev/asynqro)) and MSVC17 ([appveyor](https://ci.appveyor.com/project/dkormalev/asynqro))
+- **C++17**: Should work with Clang `>=6`, GCC `>=7` and MSVC `>=15`. Tested with Clang8 ([travis](https://travis-ci.com/dkormalev/asynqro)), GCC8 ([travis](https://travis-ci.com/dkormalev/asynqro)) and MSVC15 (VS2017, [appveyor](https://ci.appveyor.com/project/dkormalev/asynqro)). Conan packages exist for GCC 7/8/9@Linux, Clang 6/7/8@Linux, Apple-Clang 10/11@MacOSX, MSVC15@Windows.
 - **CMake** `>= 3.12.0`
-- **GoogleTest**. Will be automatically downloaded during cmake phase
-- **lcov** `>= 1.14`. Used for code coverage calculation, not needed for regular build
+- **GoogleTest**. Will be automatically downloaded during cmake phase.
+- **lcov** `>= 1.14`. Used for code coverage calculation, not needed for regular build.
 - Optional **Qt5** `>= 5.10`. It is not required though and by default asynqro is built without Qt support. There is no Qt dependency in library itself, but enabling it brings support for Qt containers, adds `Future::fromQtSignal()` and `Future::fromQtFuture()`. Also `Future::wait()` becomes guithread-aware.
 
 Asynqro has two main parts:
