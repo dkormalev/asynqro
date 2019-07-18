@@ -13,7 +13,8 @@ services:
 - docker
 
 stages:
-- build
+- name: build
+  if: tag IS blank
 - name: conan
   if: tag IS present
 
