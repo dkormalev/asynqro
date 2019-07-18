@@ -74,12 +74,6 @@ for:
 -
   matrix:
       only:
-        - conan_build: OFF
-  skip_tags: true
-  skip_non_tags: false
--
-  matrix:
-      only:
         - conan_build: ON
 
   skip_tags: false
