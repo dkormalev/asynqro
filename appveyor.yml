@@ -1,7 +1,5 @@
 version: '{branch}-{build}'
 clone_folder: c:\projects\asynqro
-skip_tags: true
-skip_non_tags: false
 
 matrix:
   fast_finish: true
