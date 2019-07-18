@@ -1,4 +1,5 @@
 *.user
+build/
 build-*
 *-build-*
 bin

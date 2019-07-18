@@ -1,47 +1,70 @@
 version: '{branch}-{build}'
 clone_folder: c:\projects\asynqro
+skip_tags: true
+skip_non_tags: false
+
+matrix:
+  fast_finish: true
+
 image:
 - Visual Studio 2017
+# Enable 2019 image when Qt is added there: https://github.com/appveyor/ci/issues/2970
+# - Visual Studio 2019
+
 configuration:
 - Release
+
 platform:
 - x64
+
 environment:
-  arch: Win64
   matrix:
     - with_qt: ON
-      prefix_path: C:/Qt/5.11/msvc2017_64
+      conan_build: OFF
     - with_qt: OFF
-      prefix_path:
-matrix:
-  fast_finish: false
+      conan_build: OFF
+    - with_qt: OFF
+      conan_build: ON
 
 skip_commits:
   files:
     - benchmarks/
     - docker/
+    - .ci/conan/
+    - conan_tests/
     - .travis.yml
+    - conanfile.py
     - README.md
     - LICENSE
     - .gitignore
+    - .clang-format
 
-# skip unsupported combinations
 init:
-- set arch=
-- if "%arch%"=="Win64" ( set arch= Win64)
-- echo %arch%
-- echo %APPVEYOR_BUILD_WORKER_IMAGE%
-- if "%APPVEYOR_BUILD_WORKER_IMAGE%"=="Visual Studio 2017" ( set generator="Visual Studio 15 2017%arch%" )
-- echo %generator%
-- set QTDIR=C:/Qt/5.11/msvc2017_64
-- set PATH=C:\projects\asynqro\build\%CONFIGURATION%;%QTDIR%\bin;%PATH%
+- set QTDIR=C:/Qt/nonexistent/msvc2017_64
+- if "%APPVEYOR_BUILD_WORKER_IMAGE%"=="Visual Studio 2017" (
+    set generator="Visual Studio 15 2017" &&
+    if "%with_qt%"=="ON" (
+      set "QTDIR=C:/Qt/5.12/msvc2017_64" &&
+      set "prefix_path=%QTDIR%"
+    )
+  )
+- if "%APPVEYOR_BUILD_WORKER_IMAGE%"=="Visual Studio 2019" (
+    set generator="Visual Studio 15 2019" &&
+    if "%with_qt%"=="ON" (
+      set "QTDIR=C:/Qt/5.12/msvc2017_64" &&
+      set "prefix_path=%QTDIR%"
+    )
+  )
+- set PATH=C:\projects\asynqro\build\%CONFIGURATION%;%QTDIR%/bin;%PATH%
+- echo %PATH%
 
 before_build:
 - cmd: |-
     mkdir build
     cd build
     cmake --version
-    cmake -DCMAKE_PREFIX_PATH=%prefix_path% -DASYNQRO_BUILD_TESTS=ON -DASYNQRO_QT_SUPPORT=%with_qt% .. -G %generator%
+    cmake -DCMAKE_PREFIX_PATH=%prefix_path% -DASYNQRO_BUILD_TESTS=ON -DASYNQRO_QT_SUPPORT=%with_qt% .. -G %generator% -A x64
+
 build:
   project: c:\projects\asynqro\build\asynqro.sln
   verbosity: minimal
@@ -49,3 +72,40 @@ build:
 test_script:
 - ctest --output-on-failure -C %CONFIGURATION%
 
+for:
+-
+  matrix:
+      only:
+        - conan_build: ON
+
+  skip_tags: false
+  skip_non_tags: true
+  environment:
+    PYTHON: "C:\\Python37-x64"
+    CONAN_USERNAME: "dkormalev"
+    CONAN_UPLOAD: "https://api.bintray.com/conan/dkormalev/conan"
+    CONAN_BUILD_TYPES: "Release,Debug"
+    CONAN_UPLOAD_ONLY_WHEN_TAG: 1
+    CPT_TEST_FOLDER: "conan_tests"
+
+  init:
+  - if "%APPVEYOR_BUILD_WORKER_IMAGE%"=="Visual Studio 2017" (
+      set CONAN_VISUAL_VERSIONS=15
+    )
+  - if "%APPVEYOR_BUILD_WORKER_IMAGE%"=="Visual Studio 2019 Preview" (
+      set CONAN_VISUAL_VERSIONS=16
+    )
+  - set PATH=%PATH%;%PYTHON%/Scripts/
+
+  install:
+  - pip.exe install conan --upgrade
+  - pip.exe install conan_package_tools
+
+  before_build:
+  - conan user # It creates the conan data directory
+
+  build_script:
+  - python .ci/conan/build.py
+
+  test_script:
+  - echo Done!

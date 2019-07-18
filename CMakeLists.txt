@@ -27,6 +27,11 @@ option(ASYNQRO_BUILD_WITH_DUMMY
     OFF
 )
 
+if (EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+    include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+    conan_basic_setup(TARGETS)
+endif()
+
 if (BUILD_SHARED_LIBS)
     message("-- asynqro: Building as shared library")
 else()
@@ -88,11 +93,11 @@ set_target_properties(asynqro PROPERTIES
 )
 
 if (ASYNQRO_QT_SUPPORT)
+    message("-- asynqro: Building with Qt support")
     find_package(Qt5Core CONFIG REQUIRED)
     find_package(Qt5Concurrent CONFIG REQUIRED)
     target_link_libraries(asynqro INTERFACE Qt5::Core Qt5::Concurrent)
     target_compile_definitions(asynqro INTERFACE ASYNQRO_QT_SUPPORT)
-    message("-- asynqro: Building with Qt support")
 endif()
 
 if(MSVC)

@@ -2,6 +2,7 @@
 [![Appveyor Build Status](https://ci.appveyor.com/api/projects/status/github/dkormalev/asynqro?svg=true&branch=develop)](https://ci.appveyor.com/project/dkormalev/asynqro)
 [![Code Coverage](https://codecov.io/gh/dkormalev/asynqro/branch/master/graph/badge.svg)](https://codecov.io/gh/dkormalev/asynqro)
 [![Release](https://img.shields.io/github/release/dkormalev/asynqro.svg)](https://github.com/dkormalev/asynqro/releases/latest)
+[![Conan](https://api.bintray.com/packages/dkormalev/conan/asynqro%3Adkormalev/images/download.svg)](https://bintray.com/dkormalev/conan/asynqro%3Adkormalev/_latestVersion)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 # Asynqro
@@ -122,9 +123,9 @@ This structure **SHOULD NOT** be saved anyhow and should be used only as a helpe
 ### Trampoline
 Using `map()` and other blocking transformations is something where we expect that stack can overflow, because we know that it will be called immediately each after another.
 
-Although, for `flatMap()` or `andThen()` it is definitely not something one can expect due to its pseudo-asynchronous nature. But, in case of lots of flatMaps, it will still overflow on backward filling when last Future is filled. 
+Although, for `flatMap()` or `andThen()` it is definitely not something one can expect due to its pseudo-asynchronous nature. But, in case of lots of flatMaps, it will still overflow on backward filling when last Future is filled.
 
-To avoid such behavior `Trampoline` struct can be used anywhere where Future return is expected. It wraps a Future with extra transformation which will make sure that stack will be reset by moving it to another thread from `Intensive` thread pool. 
+To avoid such behavior `Trampoline` struct can be used anywhere where Future return is expected. It wraps a Future with extra transformation which will make sure that stack will be reset by moving it to another thread from `Intensive` thread pool.
 
 ```cpp
 Future<int, std::string> f = /*...*/;
@@ -136,14 +137,14 @@ f.flatMap([](int x) -> Future<int, std::string> {
 ## Repeat Helpers
 Header `asynqro/repeat.h` contains `asynqro::repeat()` function that allows to do while-loop-styled calls to user function that can return either data or future with this data. User function should return either `Continue` with new set of arguments or `Finish` with final result.
 
-Typical use case for `repeat()` is when it is needed to process something in serial manner, but do so using `Future` mechanism. 
+Typical use case for `repeat()` is when it is needed to process something in serial manner, but do so using `Future` mechanism.
 
 `repeat()` signature can be:
  - `((Args...->RepeaterResult<T, Args...>), Args...) -> Future<T, FailureT>` - this form passes `Args` to function while function returns `Continue` with new set of arguments. When function returns `Finish` invocation stops and `repeat()` itself returns `Future` filled with result. This form is blocking. It doesn't do any extra copies of arguments or result if function properly moves everything.
  - `((Args...->RepeaterFutureResult<T, FailureT, Args...>), Args...) -> Future<T, FailureT>` - this form passes `Args` to function and expects Future in return. This Future can be filled either with `Finish` or `Continue` or `TrampolinedContinue`. Third option is the same as regular `Continue` but uses [Trampoline](#trampoline) inside to ensure that stack wouldn't be overflown. This form is non-blocking if function is non-blocking. It doesn't do any extra copies on top of what is done by `flatMap()`.
- 
+
 In case when there is a container with data we need to pass to our function one by one in serial manner, it is better to use `repeatForSequence()`. It accepts container, initial value and `(Data, T)->Future<T, FailureT>` function, where first argument is element from container and second is previous result (or initial value in case of first element). `repeatForSequence()` function returns `Future<T, FailureT>` with either final result or first occurred failure (and will not proceed forward with container values after failed one).
- 
+
 ## Tasks scheduling
 The same as with futures, there are lots of implementations of task scheduling:
 - `Boost.Asio` - Asio is much bigger than just scheduling, but it also provides thread pool with some API for running jobs in it
