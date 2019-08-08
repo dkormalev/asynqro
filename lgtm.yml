@@ -1,0 +1,21 @@
+path_classifiers:
+  test:
+    - tests
+    - conan_tests
+  build_utils:
+    - docker
+    - conanfile.py
+  benchmarks:
+    - benchmarks
+
+queries:
+  - include: "*"
+
+extraction:
+  cpp:
+     prepare:
+        packages:
+          - qtbase5-dev
+     configure:
+        command:
+        - cmake -DASYNQRO_BUILD_TESTS=ON -DASYNQRO_QT_SUPPORT=ON .
