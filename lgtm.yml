@@ -18,4 +18,4 @@ extraction:
           - qtbase5-dev
      configure:
         command:
-        - cmake -DASYNQRO_BUILD_TESTS=ON -DASYNQRO_QT_SUPPORT=ON .
+        - cmake -DASYNQRO_BUILD_WITH_DUMMY=ON -DASYNQRO_QT_SUPPORT=ON .

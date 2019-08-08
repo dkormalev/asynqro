@@ -1,9 +1,11 @@
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+[![Release](https://img.shields.io/github/release/dkormalev/asynqro.svg)](https://github.com/dkormalev/asynqro/releases/latest)
+[![Conan](https://api.bintray.com/packages/dkormalev/conan/asynqro%3Adkormalev/images/download.svg)](https://bintray.com/dkormalev/conan/asynqro%3Adkormalev/_latestVersion)
+
 [![Travis-CI Build Status](https://travis-ci.com/dkormalev/asynqro.svg?branch=develop)](https://travis-ci.com/dkormalev/asynqro)
 [![Appveyor Build Status](https://ci.appveyor.com/api/projects/status/github/dkormalev/asynqro?svg=true&branch=develop)](https://ci.appveyor.com/project/dkormalev/asynqro)
 [![Code Coverage](https://codecov.io/gh/dkormalev/asynqro/branch/master/graph/badge.svg)](https://codecov.io/gh/dkormalev/asynqro)
-[![Release](https://img.shields.io/github/release/dkormalev/asynqro.svg)](https://github.com/dkormalev/asynqro/releases/latest)
-[![Conan](https://api.bintray.com/packages/dkormalev/conan/asynqro%3Adkormalev/images/download.svg)](https://bintray.com/dkormalev/conan/asynqro%3Adkormalev/_latestVersion)
-[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+[![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/dkormalev/asynqro.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/dkormalev/asynqro/context:cpp)
 
 # Asynqro
 
