@@ -118,7 +118,7 @@ private:
 
 TasksDispatcher::TasksDispatcher() : d_ptr(new TasksDispatcherPrivate)
 {
-    d_ptr->q_ptr = this;
+    d_ptr->q_ptr = this; // lgtm [cpp/stack-address-escape]
     d_ptr->allWorkers.reserve(static_cast<size_t>(capacity()));
     d_ptr->customTagCapacities[0] = d_ptr->capacity;
 }
