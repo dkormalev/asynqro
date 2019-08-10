@@ -438,7 +438,7 @@ void Worker::addTask(TaskInfo &&task) noexcept
         bool wasEmpty = workerTasks.empty();
         workerTasks.insert(std::move(task));
         if (wasEmpty) {
-            std::lock_guard lock(waitingLock);
+            std::lock_guard waitLock(waitingLock);
             waiter.notify_all();
         }
     } catch (...) {

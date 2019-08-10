@@ -11,6 +11,7 @@ path_classifiers:
 queries:
   - include: "*"
   - exclude: "cpp/unused-static-variable"
+  - exclude: "cpp/unused-local-variable"
   - exclude: "python/*"
 
 extraction:
