@@ -64,3 +64,55 @@ TEST_F(FutureCallbacksTest, multipleOnFailure)
         EXPECT_EQ("failed", failedResult[i]);
     }
 }
+
+TEST_F(FutureCallbacksTest, onCompleteSuccess)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    int result = 0;
+    TestFuture<int> futureWithCallback = future.onComplete([&result]() { result = 42; });
+    EXPECT_EQ(future, futureWithCallback);
+    EXPECT_EQ(futureWithCallback, future);
+    promise.success(25);
+    EXPECT_EQ(42, result);
+}
+
+TEST_F(FutureCallbacksTest, onCompleteFailure)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    int result = 0;
+    TestFuture<int> futureWithCallback = future.onComplete([&result]() { result = 42; });
+    EXPECT_EQ(future, futureWithCallback);
+    EXPECT_EQ(futureWithCallback, future);
+    promise.failure("failed");
+    EXPECT_EQ(42, result);
+}
+
+TEST_F(FutureCallbacksTest, multipleOnCompleteSuccess)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    int result[3] = {0, 0, 0};
+    for (int i = 0; i < 3; ++i) {
+        TestFuture<int> futureWithCallback = future.onComplete([&result = result[i]]() { result = 42; });
+        EXPECT_EQ(future, futureWithCallback);
+    }
+    promise.success(25);
+    for (int i : result)
+        EXPECT_EQ(42, i);
+}
+
+TEST_F(FutureCallbacksTest, multipleOnCompleteFailure)
+{
+    TestPromise<int> promise;
+    auto future = createFuture(promise);
+    int result[3] = {0, 0, 0};
+    for (int i = 0; i < 3; ++i) {
+        TestFuture<int> futureWithCallback = future.onComplete([&result = result[i]]() { result = 42; });
+        EXPECT_EQ(future, futureWithCallback);
+    }
+    promise.failure("failed");
+    for (int i : result)
+        EXPECT_EQ(42, i);
+}

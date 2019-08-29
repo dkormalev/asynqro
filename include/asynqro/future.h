@@ -298,6 +298,15 @@ public:
         return Future<T, FailureT>(d);
     }
 
+    template <typename Func, typename = std::enable_if_t<std::is_invocable_v<Func>>>
+    Future<T, FailureT> onComplete(Func &&f) const noexcept
+    {
+        assert(d);
+        onSuccess([f](const auto &) noexcept { f(); });
+        onFailure([f = std::forward<Func>(f)](const auto &) noexcept { f(); });
+        return Future<T, FailureT>(d);
+    }
+
     template <typename Func, typename = std::enable_if_t<std::is_invocable_r_v<bool, Func, T>>>
     Future<T, FailureT>
     filter(Func &&f, const FailureT &rejected = failure::failureFromString<FailureT>("Result wasn't good enough")) const

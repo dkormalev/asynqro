@@ -110,6 +110,12 @@ public:
     }
 
     template <typename Func>
+    auto onComplete(Func &&f) const noexcept
+    {
+        return future().onComplete(std::forward<Func>(f));
+    }
+
+    template <typename Func>
     auto
     filter(Func &&f,
            const FailureType &rejected = failure::failureFromString<FailureType>("Result wasn't good enough")) noexcept
