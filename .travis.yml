@@ -48,6 +48,14 @@ jobs:
     script:
     - docker run --rm -v $(pwd):/asynqro --entrypoint=/codestyle_check.sh dkormalev/asynqro-builder
   - <<: *build
+    name: Old compiler compatibility check (Release, clang 6, no qt)
+    script:
+    - docker run --rm -v $(pwd):/asynqro -e "CXX=clang++" -e "CC=clang" --entrypoint=/build_noqt.sh dkormalev/asynqro-builder-old-compilers Release
+  - <<: *build
+    name: Old compiler compatibility check (Release, gcc 7, no qt)
+    script:
+    - docker run --rm -v $(pwd):/asynqro -e "CXX=g++" -e "CC=gcc" --entrypoint=/build_noqt.sh dkormalev/asynqro-builder-old-compilers Release
+  - <<: *build
     name: Code coverage calculation (Debug, gcc 9, qt5, lcov, codecov.io)
     if: type == pull_request OR branch == master OR branch == develop
     script:
