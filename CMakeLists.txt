@@ -143,6 +143,14 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/cmake/asynqro-config.cmake
    DESTINATION lib/cmake
 )
 
+export(EXPORT asynqro-targets FILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-targets.cmake NAMESPACE asynqro::)
+
+include(CMakePackageConfigHelpers)
+configure_package_config_file(cmake/asynqro-config.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/asynqro-config.cmake
+    INSTALL_DESTINATION lib/cmake
+)
+
 if(ASYNQRO_BUILD_TESTS)
     message("-- asynqro: Building with tests")
     enable_testing()
