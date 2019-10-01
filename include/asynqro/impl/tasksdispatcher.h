@@ -136,6 +136,7 @@ struct TaskRunner
         Promise<std::conditional_t<std::is_same_v<RawResult, void>, bool, NonVoidResult>, FinalFailure> promise;
 
         //TODO: MSVC2019+: move constexpr if back into lambda when MSFT will fix their issue with constexpr in lambdas
+        // NOLINTNEXTLINE(bugprone-branch-clone)
         if constexpr (detail::IsSpecialization_V<RawResult, Future> && RunnerInfo::deferredFailureShouldBeConverted) {
             std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept
             {

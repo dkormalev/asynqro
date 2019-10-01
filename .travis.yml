@@ -22,25 +22,25 @@ jobs:
   include:
   - &build
     stage: build
-    name: Compilation & tests (Release, clang 8, qt5)
+    name: Compilation & tests (Release, clang 9, qt5)
     install:
     - docker pull dkormalev/asynqro-builder:latest
     script:
     - docker run --rm -v $(pwd):/asynqro -e "CXX=clang++" -e "CC=clang" dkormalev/asynqro-builder Release
   - <<: *build
-    name: Compilation & tests (Release, gcc 8, qt5)
+    name: Compilation & tests (Release, gcc 9, qt5)
     script:
     - docker run --rm -v $(pwd):/asynqro -e "CXX=g++" -e "CC=gcc" dkormalev/asynqro-builder Release
   - <<: *build
-    name: Compilation & tests (Release, clang 8, no qt)
+    name: Compilation & tests (Release, clang 9, no qt)
     script:
     - docker run --rm -v $(pwd):/asynqro -e "CXX=clang++" -e "CC=clang" --entrypoint=/build_noqt.sh dkormalev/asynqro-builder Release
   - <<: *build
-    name: Compilation & tests (Release, gcc 8, no qt)
+    name: Compilation & tests (Release, gcc 9, no qt)
     script:
     - docker run --rm -v $(pwd):/asynqro -e "CXX=g++" -e "CC=gcc" --entrypoint=/build_noqt.sh dkormalev/asynqro-builder Release
   - <<: *build
-    name: Clang-tidy check (clang-tidy 8)
+    name: Clang-tidy check (clang-tidy 9)
     script:
     - docker run --rm -v $(pwd):/asynqro -e "CXX=clang++" -e "CC=clang" --entrypoint=/clangtidy_check.sh dkormalev/asynqro-builder
   - <<: *build
@@ -48,7 +48,7 @@ jobs:
     script:
     - docker run --rm -v $(pwd):/asynqro --entrypoint=/codestyle_check.sh dkormalev/asynqro-builder
   - <<: *build
-    name: Code coverage calculation (Debug, gcc 8, qt5, lcov, codecov.io)
+    name: Code coverage calculation (Debug, gcc 9, qt5, lcov, codecov.io)
     if: type == pull_request OR branch == master OR branch == develop
     script:
     - docker run --rm -v $(pwd):/asynqro -e "CXX=g++" -e "CC=gcc" --entrypoint=/codecov.sh dkormalev/asynqro-builder
