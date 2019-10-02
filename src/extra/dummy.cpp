@@ -34,6 +34,10 @@ using namespace asynqro::repeater;
 
 namespace {
 auto f = Future<int, int>::successful(5).andThenValue(25.0);
+auto dummyState1 = f.isCompleted();
+auto dummyState2 = f.isFailed();
+auto dummyState3 = f.isSucceeded();
+auto dummyState4 = f.isValid();
 auto p = Promise<int, int>();
 auto f2 = p.future()
               .recover([](auto f) { return f; })
@@ -44,8 +48,11 @@ auto f2 = p.future()
               .flatMap([](auto) { return f; })
               .flatMap([](auto) -> decltype(f) { return Trampoline(f); })
               .andThen([]() { return f; })
-              .mapFailure([](auto fail) { return fail; });
-auto r = f2.zip(tasks::run([]() { int x = 5 + 2; })).zipValue(5).result();
+              .mapFailure([](auto fail) { return fail; })
+              .onComplete([]() {}); //covers onFailure and onSuccess
+auto r = f2.zip(tasks::run([]() { int x = 5 + 2; })).zipValue(5).result(); //covers wait()
+const auto &rRef = f2.resultRef();
+auto rFailure = f2.failureReason();
 
 auto f3 = p.future() >> ([](auto) { return 5; }) >> ([](auto) { return f; }) >> []() { return f; };
 auto r2 = (f3 + tasks::run([]() { int x = 5 + 2; })).result();
@@ -55,7 +62,11 @@ auto f5 = f4.innerMap([](auto) { return 5.0; })
               .innerFilter([](auto) { return true; })
               .innerReduce([](auto, auto) { return 5; }, 0);
 
-auto f6 = Future<double, int>::sequenceWithFailures(std::vector{f, f2, f3});
+auto f6 = Future<std::vector<std::vector<int>>, int>::successful({{1, 2}, {3, 4}}).innerFlatten();
+auto f7 = tasks::run(std::vector<int>{1, 2, 3}, [](int a) -> double { return a; });
+auto f8 = tasks::clusteredRun(std::vector<int>{1, 2, 3}, [](int a) -> double { return a; });
+
+auto f10 = Future<double, int>::sequenceWithFailures(std::vector{f, f2, f3});
 
 auto sf1 = simple::successful(5);
 auto sf2 = simple::successful(5);
@@ -74,6 +85,7 @@ auto rf1 = repeat<int, std::string>(
 
 auto rf2 = repeat<int, std::string>(
     [](int x) -> RepeaterFutureResult<int, std::string, int> {
+        tasks::runAndForget([]() {});
         if (x % 42)
             return tasks::run([x]() -> RepeaterResult<int, int> {
                 if (x % 42)

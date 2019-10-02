@@ -143,7 +143,7 @@ auto run(const C &data, Task &&f, TaskType type = TaskType::Intensive, int32_t t
         futures = traverse::map(data, [f = std::forward<Task>(f), type, tag, priority](long long index, const T &x) {
             return Runner::run([index, x, f]() { return f(index, x); }, type, tag, priority).future();
         });
-    } else {
+    } else { // NOLINT(readability-misleading-indentation)
         futures = traverse::map(data, [f = std::forward<Task>(f), type, tag, priority](const T &x) {
             return Runner::run([x, f]() { return f(x); }, type, tag, priority).future();
         });
