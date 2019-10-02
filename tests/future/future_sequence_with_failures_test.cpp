@@ -65,8 +65,8 @@ void sequenceHelper(Func &&sequencer)
     std::vector<TestPromise<int>> promises;
     for (int i = 0; i < TestFixture::N; ++i)
         asynqro::traverse::detail::containers::add(promises, TestPromise<int>());
-    typename TestFixture::Source futures = traverse::map(promises, [](const auto &p) { return p.future(); },
-                                                         typename TestFixture::Source());
+    typename TestFixture::Source futures = traverse::map(
+        promises, [](const auto &p) { return p.future(); }, typename TestFixture::Source());
     auto sequencedFuture = sequencer(futures);
     int i = 0;
     for (auto it = futures.cbegin(); it != futures.cend(); ++it, ++i)
@@ -82,12 +82,13 @@ void sequenceHelper(Func &&sequencer)
 
     auto result = sequencedFuture.result().first;
     ASSERT_EQ(TestFixture::N, result.size());
-    traverse::map(result,
-                  [](auto index, auto value) {
-                      EXPECT_EQ(index * 2, value) << index;
-                      return true;
-                  },
-                  std::set<bool>());
+    traverse::map(
+        result,
+        [](auto index, auto value) {
+            EXPECT_EQ(index * 2, value) << index;
+            return true;
+        },
+        std::set<bool>());
 
     auto failures = sequencedFuture.result().second;
     ASSERT_TRUE(failures.empty());
@@ -130,8 +131,8 @@ void sequenceNegativeHelper(Func &&sequencer)
     std::vector<TestPromise<int>> promises;
     for (int i = 0; i < TestFixture::N; ++i)
         asynqro::traverse::detail::containers::add(promises, TestPromise<int>());
-    typename TestFixture::Source futures = traverse::map(promises, [](const auto &p) { return p.future(); },
-                                                         typename TestFixture::Source());
+    typename TestFixture::Source futures = traverse::map(
+        promises, [](const auto &p) { return p.future(); }, typename TestFixture::Source());
     auto sequencedFuture = sequencer(futures);
     int i = 0;
     for (auto it = futures.cbegin(); it != futures.cend(); ++it, ++i)
@@ -153,12 +154,13 @@ void sequenceNegativeHelper(Func &&sequencer)
     ASSERT_FALSE(result.count(TestFixture::N - 2));
     ASSERT_FALSE(result.count(TestFixture::N - 4));
 
-    traverse::map(result,
-                  [](auto index, auto value) {
-                      EXPECT_EQ(index * 2, value) << index;
-                      return true;
-                  },
-                  std::set<bool>());
+    traverse::map(
+        result,
+        [](auto index, auto value) {
+            EXPECT_EQ(index * 2, value) << index;
+            return true;
+        },
+        std::set<bool>());
 
     auto failures = sequencedFuture.result().second;
     ASSERT_EQ(2, failures.size());
@@ -205,8 +207,8 @@ void sequenceAllNegativeHelper(Func &&sequencer)
     std::vector<TestPromise<int>> promises;
     for (int i = 0; i < TestFixture::N; ++i)
         asynqro::traverse::detail::containers::add(promises, TestPromise<int>());
-    typename TestFixture::Source futures = traverse::map(promises, [](const auto &p) { return p.future(); },
-                                                         typename TestFixture::Source());
+    typename TestFixture::Source futures = traverse::map(
+        promises, [](const auto &p) { return p.future(); }, typename TestFixture::Source());
     auto sequencedFuture = sequencer(futures);
     int i = 0;
     for (auto it = futures.cbegin(); it != futures.cend(); ++it, ++i)
@@ -229,15 +231,16 @@ void sequenceAllNegativeHelper(Func &&sequencer)
     auto failures = sequencedFuture.result().second;
     ASSERT_EQ(TestFixture::N, failures.size());
 
-    traverse::map(failures,
-                  [](auto index, const std::string &value) {
-                      if (index == TestFixture::N - 2)
-                          EXPECT_EQ("other", value) << index;
-                      else
-                          EXPECT_EQ("failed", value) << index;
-                      return true;
-                  },
-                  std::set<bool>());
+    traverse::map(
+        failures,
+        [](auto index, const std::string &value) {
+            if (index == TestFixture::N - 2)
+                EXPECT_EQ("other", value) << index;
+            else
+                EXPECT_EQ("failed", value) << index;
+            return true;
+        },
+        std::set<bool>());
     static_assert(detail::IsSpecialization_V<std::decay_t<decltype(result)>, Container>);
     static_assert(detail::IsSpecialization_V<std::decay_t<decltype(failures)>, Container>);
 }
@@ -300,8 +303,8 @@ void sequenceMoveHelper(Func &&sequencer)
     std::vector<TestPromise<int>> promises;
     for (int i = 0; i < TestFixture::N; ++i)
         asynqro::traverse::detail::containers::add(promises, TestPromise<int>());
-    auto sequencedFuture = sequencer(
-        traverse::map(promises, [](const auto &p) { return p.future(); }, std::move(typename TestFixture::Source())));
+    auto sequencedFuture = sequencer(traverse::map(
+        promises, [](const auto &p) { return p.future(); }, std::move(typename TestFixture::Source())));
 
     for (size_t i = 0; i < TestFixture::N; ++i) {
         EXPECT_FALSE(sequencedFuture.isCompleted()) << i;
@@ -313,12 +316,13 @@ void sequenceMoveHelper(Func &&sequencer)
 
     const auto &result = sequencedFuture.resultRef().first;
     ASSERT_EQ(TestFixture::N, result.size());
-    traverse::map(result,
-                  [](auto index, auto value) {
-                      EXPECT_EQ(index * 2, value) << index;
-                      return true;
-                  },
-                  std::set<bool>());
+    traverse::map(
+        result,
+        [](auto index, auto value) {
+            EXPECT_EQ(index * 2, value) << index;
+            return true;
+        },
+        std::set<bool>());
 
     const auto &failures = sequencedFuture.resultRef().second;
     ASSERT_TRUE(failures.empty());
@@ -376,8 +380,8 @@ void sequenceNegativeMoveHelper(Func &&sequencer)
     std::vector<TestPromise<int>> promises;
     for (int i = 0; i < TestFixture::N; ++i)
         asynqro::traverse::detail::containers::add(promises, TestPromise<int>());
-    auto sequencedFuture = sequencer(
-        traverse::map(promises, [](const auto &p) { return p.future(); }, std::move(typename TestFixture::Source())));
+    auto sequencedFuture = sequencer(traverse::map(
+        promises, [](const auto &p) { return p.future(); }, std::move(typename TestFixture::Source())));
 
     for (size_t i = 0; i < TestFixture::N; ++i) {
         EXPECT_FALSE(sequencedFuture.isCompleted()) << i;
@@ -394,12 +398,13 @@ void sequenceNegativeMoveHelper(Func &&sequencer)
     ASSERT_EQ(TestFixture::N - 2, result.size());
     ASSERT_FALSE(result.count(TestFixture::N - 2));
     ASSERT_FALSE(result.count(TestFixture::N - 4));
-    traverse::map(result,
-                  [](auto index, auto value) {
-                      EXPECT_EQ(index * 2, value) << index;
-                      return true;
-                  },
-                  std::set<bool>());
+    traverse::map(
+        result,
+        [](auto index, auto value) {
+            EXPECT_EQ(index * 2, value) << index;
+            return true;
+        },
+        std::set<bool>());
 
     const auto &failures = sequencedFuture.resultRef().second;
     ASSERT_EQ(2, failures.size());
@@ -461,8 +466,8 @@ void sequenceAllNegativeMoveHelper(Func &&sequencer)
     std::vector<TestPromise<int>> promises;
     for (int i = 0; i < TestFixture::N; ++i)
         asynqro::traverse::detail::containers::add(promises, TestPromise<int>());
-    auto sequencedFuture = sequencer(
-        traverse::map(promises, [](const auto &p) { return p.future(); }, std::move(typename TestFixture::Source())));
+    auto sequencedFuture = sequencer(traverse::map(
+        promises, [](const auto &p) { return p.future(); }, std::move(typename TestFixture::Source())));
 
     for (size_t i = 0; i < TestFixture::N; ++i) {
         EXPECT_FALSE(sequencedFuture.isCompleted()) << i;
@@ -480,15 +485,16 @@ void sequenceAllNegativeMoveHelper(Func &&sequencer)
 
     const auto &failures = sequencedFuture.resultRef().second;
     ASSERT_EQ(TestFixture::N, failures.size());
-    traverse::map(failures,
-                  [](auto index, const std::string &value) {
-                      if (index == TestFixture::N - 2)
-                          EXPECT_EQ("other", value) << index;
-                      else
-                          EXPECT_EQ("failed", value) << index;
-                      return true;
-                  },
-                  std::set<bool>());
+    traverse::map(
+        failures,
+        [](auto index, const std::string &value) {
+            if (index == TestFixture::N - 2)
+                EXPECT_EQ("other", value) << index;
+            else
+                EXPECT_EQ("failed", value) << index;
+            return true;
+        },
+        std::set<bool>());
 
     EXPECT_EQ(0, Result::copyCounter);
     EXPECT_EQ(1, Result::createCounter);

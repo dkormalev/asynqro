@@ -80,15 +80,16 @@ TEST_F(TasksExceptionsTest, clusteredRunExceptionNonStd)
 
 TEST_F(TasksExceptionsTest, clusteredRunExceptionInLastCluster)
 {
-    auto future = clusteredRun(std::vector<int>{1, 2, 3, 4, 5, 6},
-                               [](int x) -> int {
-                                   if (x == 5)
-                                       throw std::runtime_error("Hi");
-                                   else if (x == 1 || x == 3)
-                                       std::this_thread::sleep_for(500ms);
-                                   return x;
-                               },
-                               2, TaskType::Custom);
+    auto future = clusteredRun(
+        std::vector<int>{1, 2, 3, 4, 5, 6},
+        [](int x) -> int {
+            if (x == 5)
+                throw std::runtime_error("Hi");
+            else if (x == 1 || x == 3)
+                std::this_thread::sleep_for(500ms);
+            return x;
+        },
+        2, TaskType::Custom);
     future.wait(10000);
     ASSERT_TRUE(future.isCompleted());
     EXPECT_FALSE(future.isSucceeded());
@@ -98,15 +99,16 @@ TEST_F(TasksExceptionsTest, clusteredRunExceptionInLastCluster)
 
 TEST_F(TasksExceptionsTest, clusteredRunExceptionNonStdInLastCluster)
 {
-    auto future = clusteredRun(std::vector<int>{1, 2, 3, 4, 5, 6},
-                               [](int x) -> int {
-                                   if (x == 5)
-                                       throw 42;
-                                   else if (x == 1 || x == 3)
-                                       std::this_thread::sleep_for(500ms);
-                                   return x;
-                               },
-                               2, TaskType::Custom);
+    auto future = clusteredRun(
+        std::vector<int>{1, 2, 3, 4, 5, 6},
+        [](int x) -> int {
+            if (x == 5)
+                throw 42;
+            else if (x == 1 || x == 3)
+                std::this_thread::sleep_for(500ms);
+            return x;
+        },
+        2, TaskType::Custom);
     future.wait(10000);
     ASSERT_TRUE(future.isCompleted());
     EXPECT_FALSE(future.isSucceeded());

@@ -81,14 +81,16 @@ TYPED_TEST_SUITE(SingleSocketedInputContainersMapTest, SingleSocketedContainersT
 TYPED_TEST(SingleSocketedInputContainersMapTest, mapEmpty)
 {
     typename TestFixture::Source emptyContainer;
-    std::vector<int> result = traverse::map(emptyContainer, [](int x) -> int { return x * 2; }, std::vector<int>());
+    std::vector<int> result = traverse::map(
+        emptyContainer, [](int x) -> int { return x * 2; }, std::vector<int>());
     EXPECT_EQ(0, result.size());
 }
 
 TYPED_TEST(SingleSocketedInputContainersMapTest, map)
 {
     typename TestFixture::Source testContainer = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<int> result = traverse::map(testContainer, [](int x) { return x * 2; }, std::vector<int>());
+    std::vector<int> result = traverse::map(
+        testContainer, [](int x) { return x * 2; }, std::vector<int>());
     ASSERT_EQ(9, result.size());
     for (size_t i = 1; i <= 9; ++i)
         EXPECT_EQ(i * 2, result[i - 1]) << i;
@@ -97,8 +99,8 @@ TYPED_TEST(SingleSocketedInputContainersMapTest, map)
 TYPED_TEST(SingleSocketedInputContainersMapTest, mapToDoubleSocketed)
 {
     typename TestFixture::Source testContainer = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::map<int, bool> result = traverse::map(testContainer, [](int x) { return std::make_pair(x * 2, x % 2); },
-                                               std::map<int, bool>());
+    std::map<int, bool> result = traverse::map(
+        testContainer, [](int x) { return std::make_pair(x * 2, x % 2); }, std::map<int, bool>());
     ASSERT_EQ(9, result.size());
     for (int i = 1; i <= 9; ++i) {
         int key = i * 2;
@@ -110,7 +112,8 @@ TYPED_TEST(SingleSocketedInputContainersMapTest, mapToDoubleSocketed)
 TYPED_TEST(SingleSocketedInputContainersMapTest, mapWithAnotherType)
 {
     typename TestFixture::Source testContainer = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<double> result = traverse::map(testContainer, [](int x) { return x * 2.0; }, std::vector<double>());
+    std::vector<double> result = traverse::map(
+        testContainer, [](int x) { return x * 2.0; }, std::vector<double>());
     ASSERT_EQ(9, result.size());
     for (size_t i = 1; i <= 9; ++i)
         EXPECT_DOUBLE_EQ(i * 2.0, result[i - 1]) << i;
@@ -119,8 +122,8 @@ TYPED_TEST(SingleSocketedInputContainersMapTest, mapWithAnotherType)
 TYPED_TEST(SingleSocketedInputContainersMapTest, mapWithIndices)
 {
     typename TestFixture::Source testContainer = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<long long> result = traverse::map(testContainer, [](long long index, int x) { return x * index; },
-                                                  std::vector<long long>());
+    std::vector<long long> result = traverse::map(
+        testContainer, [](long long index, int x) { return x * index; }, std::vector<long long>());
     ASSERT_EQ(9, result.size());
     for (size_t i = 0; i < 9; ++i)
         EXPECT_EQ(i * (i + 1), result[i]) << i;
@@ -171,16 +174,16 @@ TYPED_TEST_SUITE(SingleSocketedOutputContainersMapTest, SingleSocketedContainers
 TYPED_TEST(SingleSocketedOutputContainersMapTest, mapEmpty)
 {
     std::vector<int> emptyContainer;
-    typename TestFixture::Source result = traverse::map(emptyContainer, [](int x) -> int { return x * 2; },
-                                                        typename TestFixture::Source());
+    typename TestFixture::Source result = traverse::map(
+        emptyContainer, [](int x) -> int { return x * 2; }, typename TestFixture::Source());
     EXPECT_EQ(0, result.size());
 }
 
 TYPED_TEST(SingleSocketedOutputContainersMapTest, map)
 {
     std::vector<int> testContainer = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    typename TestFixture::Source result = traverse::map(testContainer, [](int x) { return x * 2; },
-                                                        typename TestFixture::Source());
+    typename TestFixture::Source result = traverse::map(
+        testContainer, [](int x) { return x * 2; }, typename TestFixture::Source());
     ASSERT_EQ(9, result.size());
     auto converted = toVector(result, false);
     for (size_t i = 1; i <= 9; ++i)
@@ -191,7 +194,8 @@ TYPED_TEST(SingleSocketedOutputContainersMapTest, mapWithAnotherType)
 {
     using ResultType = typename InnerTypeChanger<typename TestFixture::Source, double>::type;
     std::vector<int> testContainer = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    ResultType result = traverse::map(testContainer, [](int x) { return x * 2.0; }, ResultType());
+    ResultType result = traverse::map(
+        testContainer, [](int x) { return x * 2.0; }, ResultType());
     ASSERT_EQ(9, result.size());
     auto converted = toVector(result, false);
     for (size_t i = 1; i <= 9; ++i)
@@ -202,7 +206,8 @@ TYPED_TEST(SingleSocketedOutputContainersMapTest, mapWithIndices)
 {
     using ResultType = typename InnerTypeChanger<typename TestFixture::Source, long long>::type;
     std::vector<int> testContainer = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    ResultType result = traverse::map(testContainer, [](long long index, int x) { return x * index; }, ResultType());
+    ResultType result = traverse::map(
+        testContainer, [](long long index, int x) { return x * index; }, ResultType());
     ASSERT_EQ(9, result.size());
     auto converted = toVector(result, false);
     for (size_t i = 0; i < 9; ++i)
@@ -214,14 +219,16 @@ TYPED_TEST_SUITE(SingleSocketedUnorderedInputContainersMapTest, SingleSocketedUn
 TYPED_TEST(SingleSocketedUnorderedInputContainersMapTest, mapEmpty)
 {
     typename TestFixture::Source emptyContainer;
-    std::vector<int> result = traverse::map(emptyContainer, [](int x) -> int { return x * 2; }, std::vector<int>());
+    std::vector<int> result = traverse::map(
+        emptyContainer, [](int x) -> int { return x * 2; }, std::vector<int>());
     EXPECT_EQ(0, result.size());
 }
 
 TYPED_TEST(SingleSocketedUnorderedInputContainersMapTest, map)
 {
     typename TestFixture::Source testContainer = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<int> result = traverse::map(testContainer, [](int x) { return x * 2; }, std::vector<int>());
+    std::vector<int> result = traverse::map(
+        testContainer, [](int x) { return x * 2; }, std::vector<int>());
     ASSERT_EQ(9, result.size());
     std::sort(result.begin(), result.end());
     for (int i = 1; i <= 9; ++i)
@@ -231,7 +238,8 @@ TYPED_TEST(SingleSocketedUnorderedInputContainersMapTest, map)
 TYPED_TEST(SingleSocketedUnorderedInputContainersMapTest, mapWithAnotherType)
 {
     typename TestFixture::Source testContainer = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<double> result = traverse::map(testContainer, [](int x) { return x * 2.0; }, std::vector<double>());
+    std::vector<double> result = traverse::map(
+        testContainer, [](int x) { return x * 2.0; }, std::vector<double>());
     ASSERT_EQ(9, result.size());
     std::sort(result.begin(), result.end());
     for (size_t i = 1; i <= 9; ++i)
@@ -241,8 +249,8 @@ TYPED_TEST(SingleSocketedUnorderedInputContainersMapTest, mapWithAnotherType)
 TYPED_TEST(SingleSocketedUnorderedInputContainersMapTest, mapToDoubleSocketed)
 {
     typename TestFixture::Source testContainer = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::map<int, bool> result = traverse::map(testContainer, [](int x) { return std::make_pair(x * 2, x % 2); },
-                                               std::map<int, bool>());
+    std::map<int, bool> result = traverse::map(
+        testContainer, [](int x) { return std::make_pair(x * 2, x % 2); }, std::map<int, bool>());
     ASSERT_EQ(9, result.size());
     for (int i = 1; i <= 9; ++i) {
         int key = i * 2;
@@ -285,16 +293,16 @@ TYPED_TEST_SUITE(SingleSocketedUnorderedOutputContainersMapTest, SingleSocketedU
 TYPED_TEST(SingleSocketedUnorderedOutputContainersMapTest, mapEmpty)
 {
     std::vector<int> emptyContainer;
-    typename TestFixture::Source result = traverse::map(emptyContainer, [](int x) -> int { return x * 2; },
-                                                        typename TestFixture::Source());
+    typename TestFixture::Source result = traverse::map(
+        emptyContainer, [](int x) -> int { return x * 2; }, typename TestFixture::Source());
     EXPECT_EQ(0, result.size());
 }
 
 TYPED_TEST(SingleSocketedUnorderedOutputContainersMapTest, map)
 {
     std::vector<int> testContainer = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    typename TestFixture::Source result = traverse::map(testContainer, [](int x) { return x * 2; },
-                                                        typename TestFixture::Source());
+    typename TestFixture::Source result = traverse::map(
+        testContainer, [](int x) { return x * 2; }, typename TestFixture::Source());
     ASSERT_EQ(9, result.size());
     auto converted = toVector(result, true);
     for (size_t i = 1; i <= 9; ++i)
@@ -305,7 +313,8 @@ TYPED_TEST(SingleSocketedUnorderedOutputContainersMapTest, mapWithAnotherType)
 {
     using ResultType = typename InnerTypeChanger<typename TestFixture::Source, double>::type;
     std::vector<int> testContainer = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    ResultType result = traverse::map(testContainer, [](int x) { return x * 2.0; }, ResultType());
+    ResultType result = traverse::map(
+        testContainer, [](int x) { return x * 2.0; }, ResultType());
     ASSERT_EQ(9, result.size());
     auto converted = toVector(result, true);
     for (size_t i = 1; i <= 9; ++i)
@@ -316,7 +325,8 @@ TYPED_TEST(SingleSocketedUnorderedOutputContainersMapTest, mapWithIndices)
 {
     using ResultType = typename InnerTypeChanger<typename TestFixture::Source, long long>::type;
     std::vector<int> testContainer = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    ResultType result = traverse::map(testContainer, [](long long index, int x) { return x * index; }, ResultType());
+    ResultType result = traverse::map(
+        testContainer, [](long long index, int x) { return x * index; }, ResultType());
     ASSERT_EQ(9, result.size());
     auto converted = toVector(result, true);
     for (size_t i = 0; i < 9; ++i)

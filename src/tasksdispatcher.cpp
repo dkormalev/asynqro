@@ -311,8 +311,8 @@ void TasksDispatcherPrivate::schedule(int32_t workerId) noexcept
             } else if (static_cast<int32_t>(workersBindingsCount.size()) < boundCapacity) {
                 newBoundTask = true;
                 if (workersBindingsCount.count(workerId)) {
-                    boundWorkerId = traverse::findIf(availableWorkers,
-                                                     [this](int32_t x) { return !workersBindingsCount.count(x); }, -1);
+                    boundWorkerId = traverse::findIf(
+                        availableWorkers, [this](int32_t x) { return !workersBindingsCount.count(x); }, -1);
                     if (boundWorkerId < 0 && createNewWorkerIfPossible())
                         boundWorkerId = static_cast<int32_t>(allWorkers.size()) - 1;
                 } else {

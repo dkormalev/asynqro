@@ -13,8 +13,7 @@ TEST(SpinLockTest, lock)
     std::thread([&lock, &done]() {
         lock.lock();
         done = true;
-    })
-        .detach();
+    }).detach();
     auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (!done && std::chrono::high_resolution_clock::now() < timeout)
         ;
@@ -30,8 +29,7 @@ TEST(SpinLockTest, tryLock)
     std::thread([&lock, &done]() {
         lock.tryLock();
         done = true;
-    })
-        .detach();
+    }).detach();
     auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (!done && std::chrono::high_resolution_clock::now() < timeout)
         ;
@@ -47,8 +45,7 @@ TEST(SpinLockTest, tryLockNegative)
     std::thread([&lock, &done, &result]() {
         result = lock.tryLock();
         done = true;
-    })
-        .detach();
+    }).detach();
     auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (!done && std::chrono::high_resolution_clock::now() < timeout)
         ;
@@ -65,8 +62,7 @@ TEST(SpinLockTest, holder)
         done = true;
         while (!readyToDie)
             ;
-    })
-        .detach();
+    }).detach();
     auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (!done && std::chrono::high_resolution_clock::now() < timeout)
         ;
@@ -85,8 +81,7 @@ TEST(SpinLockTest, holderWithAbandon)
     std::thread([&lock, &done, &abandon]() {
         SpinLockHolder holder(&lock, abandon);
         done = true;
-    })
-        .detach();
+    }).detach();
     auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (!done && std::chrono::high_resolution_clock::now() < timeout)
         ;

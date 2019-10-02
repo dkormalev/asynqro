@@ -119,7 +119,8 @@ TYPED_TEST(SingleSocketedContainersTraverseTest, findIf)
 TYPED_TEST(SingleSocketedContainersTraverseTest, findIfEmpty)
 {
     typename TestFixture::Source emptyContainer;
-    int result = traverse::findIf(emptyContainer, [](int x) -> bool { return x % 2; }, -1);
+    int result = traverse::findIf(
+        emptyContainer, [](int x) -> bool { return x % 2; }, -1);
     EXPECT_EQ(-1, result);
 }
 
@@ -190,7 +191,8 @@ TYPED_TEST(SingleSocketedUnorderedContainersTraverseTest, findIf)
 TYPED_TEST(SingleSocketedUnorderedContainersTraverseTest, findIfEmpty)
 {
     typename TestFixture::Source emptyContainer;
-    int result = traverse::findIf(emptyContainer, [](int x) -> bool { return x % 2; }, -1);
+    int result = traverse::findIf(
+        emptyContainer, [](int x) -> bool { return x % 2; }, -1);
     EXPECT_EQ(-1, result);
 }
 
@@ -268,8 +270,8 @@ TYPED_TEST(DoubleSocketedContainersTraverseTest, findIf)
 TYPED_TEST(DoubleSocketedContainersTraverseTest, findIfEmpty)
 {
     typename TestFixture::Source emptyContainer;
-    std::pair<int, bool> result = traverse::findIf(emptyContainer, [](int, bool y) -> bool { return y; },
-                                                   std::make_pair(-1, false));
+    std::pair<int, bool> result = traverse::findIf(
+        emptyContainer, [](int, bool y) -> bool { return y; }, std::make_pair(-1, false));
     EXPECT_EQ(-1, result.first);
     EXPECT_FALSE(result.second);
 }
@@ -351,8 +353,8 @@ TYPED_TEST(DoubleSocketedUnorderedContainersTraverseTest, findIf)
 TYPED_TEST(DoubleSocketedUnorderedContainersTraverseTest, findIfEmpty)
 {
     typename TestFixture::Source emptyContainer;
-    std::pair<int, bool> result = traverse::findIf(emptyContainer, [](int, bool y) -> bool { return y; },
-                                                   std::make_pair(-1, false));
+    std::pair<int, bool> result = traverse::findIf(
+        emptyContainer, [](int, bool y) -> bool { return y; }, std::make_pair(-1, false));
     EXPECT_EQ(-1, result.first);
     EXPECT_FALSE(result.second);
 }

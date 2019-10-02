@@ -20,7 +20,7 @@ AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 AlwaysBreakAfterReturnType: None
 AlwaysBreakBeforeMultilineStrings: false
-AlwaysBreakTemplateDeclarations: true #should be MultiLine since 7.0.0
+AlwaysBreakTemplateDeclarations: true
 BinPackArguments: true
 BinPackParameters: true
 BraceWrapping:
@@ -78,7 +78,7 @@ PenaltyBreakBeforeFirstCallParameter: 300
 PenaltyBreakComment: 300
 PenaltyBreakFirstLessLess: 50
 PenaltyBreakString: 200
-#PenaltyBreakTemplateDeclaration: 10 #7.0.0
+PenaltyBreakTemplateDeclaration: 10
 PenaltyExcessCharacter: 10
 PenaltyReturnTypeOnItsOwnLine: 50
 PointerAlignment: Right
@@ -88,9 +88,9 @@ SortUsingDeclarations: true
 SpaceAfterCStyleCast: false
 SpaceAfterTemplateKeyword: true
 SpaceBeforeAssignmentOperators: true
-#SpaceBeforeCtorInitializerColon: true #7.0.0
-#SpaceBeforeInheritanceColon: true #7.0.0
-#SpaceBeforeRangeBasedForLoopColon: true #7.0.0
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeRangeBasedForLoopColon: true
 SpaceBeforeParens: ControlStatements
 SpaceInEmptyParentheses: false
 SpacesBeforeTrailingComments: 1

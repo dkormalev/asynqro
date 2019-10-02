@@ -338,8 +338,7 @@ TEST_F(FutureBasicsTest, fromQtFutureIntFromOtherThread)
                 prepared = true;
                 while (!done) {
                 }
-            })
-                .detach();
+            }).detach();
 
             while (!prepared) {
             }
@@ -384,8 +383,7 @@ TEST_F(FutureBasicsTest, fromQtFutureBoolFromOtherThread)
                 prepared = true;
                 while (!done) {
                 }
-            })
-                .detach();
+            }).detach();
 
             while (!prepared) {
             }
@@ -429,8 +427,7 @@ TEST_F(FutureBasicsTest, fromQtFutureVoidFromOtherThread)
                 prepared = true;
                 while (!done) {
                 }
-            })
-                .detach();
+            }).detach();
 
             while (!prepared) {
             }
@@ -475,8 +472,7 @@ TEST_F(FutureBasicsTest, fromQtFutureIndirectBoolFromOtherThread)
                 prepared = true;
                 while (!done) {
                 }
-            })
-                .detach();
+            }).detach();
 
             while (!prepared) {
             }
@@ -521,8 +517,7 @@ TEST_F(FutureBasicsTest, fromQtFutureIntArrayFromOtherThread)
                 prepared = true;
                 while (!done) {
                 }
-            })
-                .detach();
+            }).detach();
 
             while (!prepared) {
             }
@@ -653,8 +648,7 @@ TEST_F(FutureBasicsTest, waitForever)
     std::thread([promise]() {
         std::this_thread::sleep_for(500ms);
         promise.success(42);
-    })
-        .detach();
+    }).detach();
     bool result = future.wait();
     EXPECT_TRUE(result);
     ASSERT_TRUE(future.isCompleted());
@@ -681,8 +675,7 @@ TEST_F(FutureBasicsTest, waitForeverForMovableOnly)
     std::thread([promise]() {
         std::this_thread::sleep_for(500ms);
         promise.success(MovableOnly{42});
-    })
-        .detach();
+    }).detach();
     bool result = future.wait();
     EXPECT_TRUE(result);
     ASSERT_TRUE(future.isCompleted());
@@ -705,8 +698,7 @@ TEST_F(FutureBasicsTest, waitForeverInQApp)
         std::thread([promise]() {
             std::this_thread::sleep_for(500ms);
             promise.success(42);
-        })
-            .detach();
+        }).detach();
         bool result = future.wait();
         EXPECT_TRUE(result);
         ASSERT_TRUE(future.isCompleted());
@@ -727,8 +719,7 @@ TEST_F(FutureBasicsTest, waitTimedPositive)
     std::thread([promise]() {
         std::this_thread::sleep_for(500ms);
         promise.success(42);
-    })
-        .detach();
+    }).detach();
     bool result = future.wait(30000);
     EXPECT_TRUE(result);
     ASSERT_TRUE(future.isCompleted());
@@ -756,8 +747,7 @@ TEST_F(FutureBasicsTest, waitInResult)
     std::thread([promise]() {
         std::this_thread::sleep_for(500ms);
         promise.success(42);
-    })
-        .detach();
+    }).detach();
     future.result();
     ASSERT_TRUE(future.isCompleted());
     EXPECT_TRUE(future.isSucceeded());
@@ -774,8 +764,7 @@ TEST_F(FutureBasicsTest, waitInResultRef)
     std::thread([promise]() {
         std::this_thread::sleep_for(500ms);
         promise.success(42);
-    })
-        .detach();
+    }).detach();
     future.resultRef();
     ASSERT_TRUE(future.isCompleted());
     EXPECT_TRUE(future.isSucceeded());
@@ -792,8 +781,7 @@ TEST_F(FutureBasicsTest, waitInFailureReason)
     std::thread([promise]() {
         std::this_thread::sleep_for(500ms);
         promise.success(42);
-    })
-        .detach();
+    }).detach();
     future.failureReason();
     ASSERT_TRUE(future.isCompleted());
     EXPECT_TRUE(future.isSucceeded());

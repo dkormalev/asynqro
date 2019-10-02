@@ -130,8 +130,9 @@ public:
     operator Future<T, std::variant<NewFailures...>>() // NOLINT(google-explicit-constructor)
     {
         return mapFailure([](const FailureT &failure) {
-            return std::visit([](auto &&x) noexcept->std::variant<NewFailures...> { return x; },
-                              detail::AsVariant<FailureT>::make(failure));
+            return std::visit(
+                [](auto &&x) noexcept -> std::variant<NewFailures...> { return x; },
+                detail::AsVariant<FailureT>::make(failure));
         });
     }
 
@@ -485,23 +486,23 @@ public:
     Future<Result, NewFailure> zip(Head head, Tail... tail) const noexcept
     {
         if constexpr (std::is_same_v<FailureT, NewFailure>) {
-            return flatMap([head, tail...](const T &v) noexcept->Future<Result, FailureT> {
-                return head.zip(tail...).map([v](const auto &argsResult) noexcept->Result {
+            return flatMap([head, tail...](const T &v) noexcept -> Future<Result, FailureT> {
+                return head.zip(tail...).map([v](const auto &argsResult) noexcept -> Result {
                     return std::tuple_cat(detail::AsTuple<T>::make(v), argsResult);
                 });
             });
         } else { // NOLINT(readability-else-after-return,readability-misleading-indentation)
             return mapFailure([](const FailureT &failure) {
-                       return std::visit([](auto &&x) noexcept->NewFailure { return x; },
+                       return std::visit([](auto &&x) noexcept -> NewFailure { return x; },
                                          detail::AsVariant<FailureT>::make(failure));
                    })
-                .flatMap([head, tail...](const T &v) noexcept->Future<Result, NewFailure> {
+                .flatMap([head, tail...](const T &v) noexcept -> Future<Result, NewFailure> {
                     return head.zip(tail...)
                         .mapFailure([](const InnerZipFailure &failure) {
-                            return std::visit([](auto &&x) noexcept->NewFailure { return x; },
+                            return std::visit([](auto &&x) noexcept -> NewFailure { return x; },
                                               detail::AsVariant<InnerZipFailure>::make(failure));
                         })
-                        .map([v](const auto &argsResult) noexcept->Result {
+                        .map([v](const auto &argsResult) noexcept -> Result {
                             return std::tuple_cat(detail::AsTuple<T>::make(v), argsResult);
                         });
                 });
@@ -642,7 +643,8 @@ public:
             });
         } else if constexpr (detail::HasTypeParams_V<T> && std::is_convertible_v<OtherT, detail::InnerType_T<T>>) { // NOLINT(readability-misleading-indentation)
             QObject::connect(watcher, &QFutureWatcherBase::finished, watcher, [cleaner, future, watcher]() {
-                future.fillSuccess(traverse::map(watcher->future().results(), [](const OtherT &x) { return x; }, T()));
+                future.fillSuccess(traverse::map(
+                    watcher->future().results(), [](const OtherT &x) { return x; }, T()));
                 cleaner();
             });
         } else { // NOLINT(readability-misleading-indentation)
