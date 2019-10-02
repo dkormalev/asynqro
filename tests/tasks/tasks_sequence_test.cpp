@@ -16,14 +16,15 @@ TEST_F(TasksSequenceRunTest, intensiveSequenceRun)
     int n = capacity * 2;
     for (int i = 0; i < n; ++i)
         input.push_back(i);
-    TestFuture<std::vector<int>> future = run(input,
-                                              [&ready, &runCounter](int x) {
-                                                  ++runCounter;
-                                                  while (!ready)
-                                                      std::this_thread::sleep_for(1ms);
-                                                  return x * 2;
-                                              },
-                                              TaskType::Intensive);
+    TestFuture<std::vector<int>> future = run(
+        input,
+        [&ready, &runCounter](int x) {
+            ++runCounter;
+            while (!ready)
+                std::this_thread::sleep_for(1ms);
+            return x * 2;
+        },
+        TaskType::Intensive);
 
     auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)
@@ -47,14 +48,15 @@ TEST_F(TasksSequenceRunTest, sequenceRun)
     int n = capacity * 2;
     for (int i = 0; i < n; ++i)
         input.push_back(i);
-    TestFuture<std::vector<int>> future = run(input,
-                                              [&ready, &runCounter](int x) {
-                                                  ++runCounter;
-                                                  while (!ready)
-                                                      std::this_thread::sleep_for(1ms);
-                                                  return x * 2;
-                                              },
-                                              TaskType::Custom, 0);
+    TestFuture<std::vector<int>> future = run(
+        input,
+        [&ready, &runCounter](int x) {
+            ++runCounter;
+            while (!ready)
+                std::this_thread::sleep_for(1ms);
+            return x * 2;
+        },
+        TaskType::Custom, 0);
 
     auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)
@@ -81,14 +83,15 @@ TEST_F(TasksSequenceRunTest, deferredSequenceRun)
     int n = capacity * 2;
     for (int i = 0; i < n; ++i)
         input.push_back(i);
-    TestFuture<std::vector<int>> future = run(input,
-                                              [&ready, &runCounter](int x) {
-                                                  ++runCounter;
-                                                  while (!ready)
-                                                      std::this_thread::sleep_for(1ms);
-                                                  return TestFuture<int>::successful(x * 2);
-                                              },
-                                              TaskType::Custom, 0);
+    TestFuture<std::vector<int>> future = run(
+        input,
+        [&ready, &runCounter](int x) {
+            ++runCounter;
+            while (!ready)
+                std::this_thread::sleep_for(1ms);
+            return TestFuture<int>::successful(x * 2);
+        },
+        TaskType::Custom, 0);
 
     auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)
@@ -115,13 +118,14 @@ TEST_F(TasksSequenceRunTest, voidSequenceRun)
     int n = capacity * 2;
     for (int i = 0; i < n; ++i)
         input.push_back(i);
-    TestFuture<bool> future = run(input,
-                                  [&ready, &runCounter](int) {
-                                      ++runCounter;
-                                      while (!ready)
-                                          std::this_thread::sleep_for(1ms);
-                                  },
-                                  TaskType::Custom, 0);
+    TestFuture<bool> future = run(
+        input,
+        [&ready, &runCounter](int) {
+            ++runCounter;
+            while (!ready)
+                std::this_thread::sleep_for(1ms);
+        },
+        TaskType::Custom, 0);
 
     auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)
@@ -146,14 +150,15 @@ TEST_F(TasksSequenceRunTest, sequenceRunWithIndices)
     int n = capacity * 2;
     for (int i = 0; i < n; ++i)
         input.push_back(n - i);
-    TestFuture<std::vector<long long>> future = run(input,
-                                                    [n, &ready, &runCounter](long long index, int x) {
-                                                        ++runCounter;
-                                                        while (!ready)
-                                                            std::this_thread::sleep_for(1ms);
-                                                        return ((n - index) == x) ? index * 2 : -42;
-                                                    },
-                                                    TaskType::Custom, 0);
+    TestFuture<std::vector<long long>> future = run(
+        input,
+        [n, &ready, &runCounter](long long index, int x) {
+            ++runCounter;
+            while (!ready)
+                std::this_thread::sleep_for(1ms);
+            return ((n - index) == x) ? index * 2 : -42;
+        },
+        TaskType::Custom, 0);
 
     auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)
@@ -180,15 +185,15 @@ TEST_F(TasksSequenceRunTest, deferredSequenceRunWithIndices)
     int n = capacity * 2;
     for (int i = 0; i < n; ++i)
         input.push_back(n - i);
-    TestFuture<std::vector<long long>> future = run(input,
-                                                    [n, &ready, &runCounter](long long index, int x) {
-                                                        ++runCounter;
-                                                        while (!ready)
-                                                            std::this_thread::sleep_for(1ms);
-                                                        return TestFuture<long long>::successful(
-                                                            ((n - index) == x) ? index * 2 : -42);
-                                                    },
-                                                    TaskType::Custom, 0);
+    TestFuture<std::vector<long long>> future = run(
+        input,
+        [n, &ready, &runCounter](long long index, int x) {
+            ++runCounter;
+            while (!ready)
+                std::this_thread::sleep_for(1ms);
+            return TestFuture<long long>::successful(((n - index) == x) ? index * 2 : -42);
+        },
+        TaskType::Custom, 0);
 
     auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)
@@ -215,13 +220,14 @@ TEST_F(TasksSequenceRunTest, voidSequenceRunWithIndices)
     int n = capacity * 2;
     for (int i = 0; i < n; ++i)
         input.push_back(n - i);
-    TestFuture<bool> future = run(input,
-                                  [&ready, &runCounter](long long, int) {
-                                      ++runCounter;
-                                      while (!ready)
-                                          std::this_thread::sleep_for(1ms);
-                                  },
-                                  TaskType::Custom, 0);
+    TestFuture<bool> future = run(
+        input,
+        [&ready, &runCounter](long long, int) {
+            ++runCounter;
+            while (!ready)
+                std::this_thread::sleep_for(1ms);
+        },
+        TaskType::Custom, 0);
 
     auto timeout = std::chrono::high_resolution_clock::now() + 10s;
     while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)

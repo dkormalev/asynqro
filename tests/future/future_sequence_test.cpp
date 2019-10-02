@@ -70,8 +70,8 @@ TYPED_TEST(FutureSequenceTest, sequence)
     std::vector<TestPromise<int>> promises;
     for (int i = 0; i < TestFixture::N; ++i)
         asynqro::traverse::detail::containers::add(promises, TestPromise<int>());
-    typename TestFixture::Source futures = traverse::map(promises, [](const auto &p) { return p.future(); },
-                                                         typename TestFixture::Source());
+    typename TestFixture::Source futures = traverse::map(
+        promises, [](const auto &p) { return p.future(); }, typename TestFixture::Source());
     typename TestFixture::ResultFuture sequencedFuture = TestFuture<int>::sequence(futures);
     int i = 0;
 
@@ -99,8 +99,8 @@ TYPED_TEST(FutureSequenceTest, sequenceNegative)
     std::vector<TestPromise<int>> promises;
     for (int i = 0; i < TestFixture::N; ++i)
         asynqro::traverse::detail::containers::add(promises, TestPromise<int>());
-    typename TestFixture::Source futures = traverse::map(promises, [](const auto &p) { return p.future(); },
-                                                         typename TestFixture::Source());
+    typename TestFixture::Source futures = traverse::map(
+        promises, [](const auto &p) { return p.future(); }, typename TestFixture::Source());
     typename TestFixture::ResultFuture sequencedFuture = TestFuture<int>::sequence(futures);
     int i = 0;
     for (auto it = futures.cbegin(); it != futures.cend(); ++it, ++i)
@@ -126,8 +126,8 @@ TYPED_TEST(FutureSequenceTest, sequenceNegativeDeferred)
     std::vector<TestPromise<int>> promises;
     for (int i = 0; i < TestFixture::N; ++i)
         asynqro::traverse::detail::containers::add(promises, TestPromise<int>());
-    typename TestFixture::Source futures = traverse::map(promises, [](const auto &p) { return p.future(); },
-                                                         typename TestFixture::Source());
+    typename TestFixture::Source futures = traverse::map(
+        promises, [](const auto &p) { return p.future(); }, typename TestFixture::Source());
     typename TestFixture::ResultFuture sequencedFuture = TestFuture<int>::sequence(futures);
     std::atomic_bool waitingForFailing = false;
     promises[TestFixture::N - 3].future().onSuccess([&waitingForFailing](int) { waitingForFailing = true; });
@@ -171,8 +171,8 @@ TYPED_TEST(FutureMoveSequenceTest, sequenceMove)
     std::vector<TestPromise<int>> promises;
     for (int i = 0; i < TestFixture::N; ++i)
         asynqro::traverse::detail::containers::add(promises, TestPromise<int>());
-    typename TestFixture::ResultFuture sequencedFuture = TestFuture<int>::sequence(
-        traverse::map(promises, [](const auto &p) { return p.future(); }, std::move(typename TestFixture::Source())));
+    typename TestFixture::ResultFuture sequencedFuture = TestFuture<int>::sequence(traverse::map(
+        promises, [](const auto &p) { return p.future(); }, std::move(typename TestFixture::Source())));
 
     for (size_t i = 0; i < TestFixture::N; ++i) {
         EXPECT_FALSE(sequencedFuture.isCompleted()) << i;
@@ -199,8 +199,8 @@ TYPED_TEST(FutureMoveSequenceTest, sequenceNegative)
     for (int i = 0; i < TestFixture::N; ++i)
         asynqro::traverse::detail::containers::add(promises, TestPromise<int>());
 
-    typename TestFixture::ResultFuture sequencedFuture = TestFuture<int>::sequence(
-        traverse::map(promises, [](const auto &p) { return p.future(); }, std::move(typename TestFixture::Source())));
+    typename TestFixture::ResultFuture sequencedFuture = TestFuture<int>::sequence(traverse::map(
+        promises, [](const auto &p) { return p.future(); }, std::move(typename TestFixture::Source())));
 
     promises[TestFixture::N - 2].failure("failed");
     EXPECT_FALSE(sequencedFuture.isCompleted());
@@ -228,8 +228,8 @@ TYPED_TEST(FutureMoveSequenceTest, sequenceNegativeDeferred)
     for (int i = 0; i < TestFixture::N; ++i)
         asynqro::traverse::detail::containers::add(promises, TestPromise<int>());
 
-    typename TestFixture::ResultFuture sequencedFuture = TestFuture<int>::sequence(
-        traverse::map(promises, [](const auto &p) { return p.future(); }, std::move(typename TestFixture::Source())));
+    typename TestFixture::ResultFuture sequencedFuture = TestFuture<int>::sequence(traverse::map(
+        promises, [](const auto &p) { return p.future(); }, std::move(typename TestFixture::Source())));
 
     std::atomic_bool waitingForFailing = false;
     promises[TestFixture::N - 3].future().onSuccess([&waitingForFailing](int) { waitingForFailing = true; });

@@ -12,7 +12,7 @@ COPY run-clang-tidy-asynqro.py /run-clang-tidy-asynqro.py
 RUN chmod +x /image_cleanup.sh && chmod +x /build.sh && chmod +x /codecov.sh && chmod +x /build_noqt.sh \
     && chmod +x /codestyle_check.sh && chmod +x /clangtidy_check.sh && chmod +x /run-clang-tidy-asynqro.py \
     && apt-get update \
-    && apt-get install -y --no-install-recommends wget ca-certificates cmake make git clang clang-format-6.0 clang-tidy libc++abi-dev libc++-dev gcc g++ lcov qtbase5-dev python-yaml \
+    && apt-get install -y --no-install-recommends wget ca-certificates cmake make git clang clang-format clang-tidy libc++abi-dev libc++-dev gcc g++ lcov qtbase5-dev python-yaml \
     && /image_cleanup.sh
 
 ENV CTEST_OUTPUT_ON_FAILURE=1 \

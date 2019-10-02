@@ -20,21 +20,21 @@ TEST_F(TasksClusteredRunTest, clusteredRun)
     int minClusterSize = 5;
     for (int i = 0; i < n; ++i)
         input.push_back(i);
-    TestFuture<std::vector<int>> future = clusteredRun(input,
-                                                       [&ready, &runCounter, &totalCounter, &initialDataLock,
-                                                        &initialData](int x) {
-                                                           if (!ready) {
-                                                               initialDataLock.lock();
-                                                               initialData.push_back(x);
-                                                               initialDataLock.unlock();
-                                                           }
-                                                           ++runCounter;
-                                                           while (!ready)
-                                                               ;
-                                                           ++totalCounter;
-                                                           return x * 2;
-                                                       },
-                                                       minClusterSize, TaskType::Intensive);
+    TestFuture<std::vector<int>> future = clusteredRun(
+        input,
+        [&ready, &runCounter, &totalCounter, &initialDataLock, &initialData](int x) {
+            if (!ready) {
+                initialDataLock.lock();
+                initialData.push_back(x);
+                initialDataLock.unlock();
+            }
+            ++runCounter;
+            while (!ready)
+                ;
+            ++totalCounter;
+            return x * 2;
+        },
+        minClusterSize, TaskType::Intensive);
     auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(1000);
     while (runCounter < capacity && std::chrono::high_resolution_clock::now() < timeout)
         ;
@@ -83,21 +83,21 @@ TEST_F(TasksClusteredRunTest, clusteredRunWithExtraBigCluster)
     int minClusterSize = n / realClustersCount;
     for (int i = 0; i < n; ++i)
         input.push_back(i);
-    TestFuture<std::vector<int>> future = clusteredRun(input,
-                                                       [&ready, &runCounter, &totalCounter, &initialDataLock,
-                                                        &initialData](int x) {
-                                                           if (!ready) {
-                                                               initialDataLock.lock();
-                                                               initialData.push_back(x);
-                                                               initialDataLock.unlock();
-                                                           }
-                                                           ++runCounter;
-                                                           while (!ready)
-                                                               ;
-                                                           ++totalCounter;
-                                                           return x * 2;
-                                                       },
-                                                       minClusterSize, TaskType::Custom, 42);
+    TestFuture<std::vector<int>> future = clusteredRun(
+        input,
+        [&ready, &runCounter, &totalCounter, &initialDataLock, &initialData](int x) {
+            if (!ready) {
+                initialDataLock.lock();
+                initialData.push_back(x);
+                initialDataLock.unlock();
+            }
+            ++runCounter;
+            while (!ready)
+                ;
+            ++totalCounter;
+            return x * 2;
+        },
+        minClusterSize, TaskType::Custom, 42);
 
     auto timeout = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(1000);
     while (runCounter < realClustersCount && std::chrono::high_resolution_clock::now() < timeout)
@@ -128,15 +128,16 @@ TEST_F(TasksClusteredRunTest, clusteredRunWithFailure)
     int n = 20;
     for (int i = 0; i < n; ++i)
         input.push_back(i);
-    TestFuture<std::vector<int>> future = clusteredRun(input,
-                                                       [&ready](int x) -> int {
-                                                           while (!ready)
-                                                               ;
-                                                           if (x == 3)
-                                                               return WithTestFailure("failed");
-                                                           return x * 2;
-                                                       },
-                                                       5);
+    TestFuture<std::vector<int>> future = clusteredRun(
+        input,
+        [&ready](int x) -> int {
+            while (!ready)
+                ;
+            if (x == 3)
+                return WithTestFailure("failed");
+            return x * 2;
+        },
+        5);
     ready = true;
     future.wait(10000);
     ASSERT_TRUE(future.isCompleted());
@@ -152,15 +153,16 @@ TEST_F(TasksClusteredRunTest, clusteredRunWithFailureInLastCluster)
     int n = 20;
     for (int i = 0; i < n; ++i)
         input.push_back(i);
-    TestFuture<std::vector<int>> future = clusteredRun(input,
-                                                       [&ready](int x) -> int {
-                                                           while (!ready)
-                                                               ;
-                                                           if (x == 19)
-                                                               return WithTestFailure("failed");
-                                                           return x * 2;
-                                                       },
-                                                       5);
+    TestFuture<std::vector<int>> future = clusteredRun(
+        input,
+        [&ready](int x) -> int {
+            while (!ready)
+                ;
+            if (x == 19)
+                return WithTestFailure("failed");
+            return x * 2;
+        },
+        5);
     ready = true;
     future.wait(10000);
     ASSERT_TRUE(future.isCompleted());
@@ -176,15 +178,16 @@ TEST_F(TasksClusteredRunTest, clusteredRunWithNegativeClusterSize)
     int n = 20;
     for (int i = 0; i < n; ++i)
         input.push_back(i);
-    TestFuture<std::vector<int>> future = clusteredRun(input,
-                                                       [&ready](int x) -> int {
-                                                           while (!ready)
-                                                               ;
-                                                           if (x == 3)
-                                                               return WithTestFailure("failed");
-                                                           return x * 2;
-                                                       },
-                                                       -5);
+    TestFuture<std::vector<int>> future = clusteredRun(
+        input,
+        [&ready](int x) -> int {
+            while (!ready)
+                ;
+            if (x == 3)
+                return WithTestFailure("failed");
+            return x * 2;
+        },
+        -5);
     ready = true;
     future.wait(10000);
     ASSERT_TRUE(future.isCompleted());

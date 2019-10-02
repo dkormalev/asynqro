@@ -138,8 +138,7 @@ struct TaskRunner
         //TODO: MSVC2019+: move constexpr if back into lambda when MSFT will fix their issue with constexpr in lambdas
         // NOLINTNEXTLINE(bugprone-branch-clone)
         if constexpr (detail::IsSpecialization_V<RawResult, Future> && RunnerInfo::deferredFailureShouldBeConverted) {
-            std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept
-            {
+            std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept {
                 if (promise.isFilled())
                     return;
                 detail::invalidateLastFailure();
@@ -158,8 +157,7 @@ struct TaskRunner
             TasksDispatcher::instance()->insertTaskInfo(std::move(f), type, tag, priority);
         } else if constexpr (detail::IsSpecialization_V<RawResult, Future>) { // NOLINT(readability-misleading-indentation)
             // !TaskRunnerDescriptor::deferredFailureShouldBeConverted
-            std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept
-            {
+            std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept {
                 if (promise.isFilled())
                     return;
                 detail::invalidateLastFailure();
@@ -175,8 +173,7 @@ struct TaskRunner
             };
             TasksDispatcher::instance()->insertTaskInfo(std::move(f), type, tag, priority);
         } else if constexpr (std::is_same_v<RawResult, void>) { // NOLINT(readability-misleading-indentation)
-            std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept
-            {
+            std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept {
                 if (promise.isFilled())
                     return;
                 detail::invalidateLastFailure();
@@ -191,8 +188,7 @@ struct TaskRunner
             };
             TasksDispatcher::instance()->insertTaskInfo(std::move(f), type, tag, priority);
         } else { // NOLINT(readability-misleading-indentation)
-            std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept
-            {
+            std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept {
                 if (promise.isFilled())
                     return;
                 detail::invalidateLastFailure();

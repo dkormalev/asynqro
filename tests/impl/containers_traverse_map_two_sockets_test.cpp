@@ -84,9 +84,8 @@ TYPED_TEST_SUITE(DoubleSocketedInputContainersMapTest, DoubleSocketedContainersT
 TYPED_TEST(DoubleSocketedInputContainersMapTest, mapEmpty)
 {
     typename TestFixture::Source emptyContainer;
-    std::map<int, bool> result = traverse::map(emptyContainer,
-                                               [](int x, bool) { return std::make_pair(x * 2, !(x % 3)); },
-                                               std::map<int, bool>());
+    std::map<int, bool> result = traverse::map(
+        emptyContainer, [](int x, bool) { return std::make_pair(x * 2, !(x % 3)); }, std::map<int, bool>());
     EXPECT_EQ(0, result.size());
 }
 
@@ -95,8 +94,8 @@ TYPED_TEST(DoubleSocketedInputContainersMapTest, map)
     typename TestFixture::Source testContainer = {{1, true},  {2, false}, {3, true},  {4, false}, {5, true},
                                                   {6, false}, {7, true},  {8, false}, {9, true}};
     ;
-    std::map<int, bool> result = traverse::map(testContainer, [](int x, bool) { return std::make_pair(x * 2, !(x % 3)); },
-                                               std::map<int, bool>());
+    std::map<int, bool> result = traverse::map(
+        testContainer, [](int x, bool) { return std::make_pair(x * 2, !(x % 3)); }, std::map<int, bool>());
     ASSERT_EQ(9, result.size());
     for (int i = 1; i <= 9; ++i) {
         int key = i * 2;
@@ -110,7 +109,8 @@ TYPED_TEST(DoubleSocketedInputContainersMapTest, mapToSingleSocketed)
     typename TestFixture::Source testContainer = {{1, true},  {2, false}, {3, true},  {4, false}, {5, true},
                                                   {6, false}, {7, true},  {8, false}, {9, true}};
     ;
-    std::vector<int> result = traverse::map(testContainer, [](int x, bool) { return x * 2; }, std::vector<int>());
+    std::vector<int> result = traverse::map(
+        testContainer, [](int x, bool) { return x * 2; }, std::vector<int>());
     ASSERT_EQ(9, result.size());
     for (size_t i = 1; i <= 9; ++i)
         EXPECT_EQ(i * 2, result[i - 1]) << i;
@@ -121,9 +121,8 @@ TYPED_TEST(DoubleSocketedInputContainersMapTest, mapWithAnotherType)
     typename TestFixture::Source testContainer = {{1, true},  {2, false}, {3, true},  {4, false}, {5, true},
                                                   {6, false}, {7, true},  {8, false}, {9, true}};
 
-    std::map<int, double> result = traverse::map(testContainer,
-                                                 [](int x, bool) { return std::make_pair(x * 2, x * 2.0); },
-                                                 std::map<int, double>());
+    std::map<int, double> result = traverse::map(
+        testContainer, [](int x, bool) { return std::make_pair(x * 2, x * 2.0); }, std::map<int, double>());
     ASSERT_EQ(9, result.size());
     for (int i = 1; i <= 9; ++i) {
         int key = i * 2;
@@ -181,9 +180,8 @@ TYPED_TEST_SUITE(DoubleSocketedOutputContainersMapTest, DoubleSocketedContainers
 TYPED_TEST(DoubleSocketedOutputContainersMapTest, mapEmpty)
 {
     std::map<int, bool> emptyContainer;
-    typename TestFixture::Source result = traverse::map(emptyContainer,
-                                                        [](int x, bool) { return std::make_pair(x * 2, !(x % 3)); },
-                                                        typename TestFixture::Source());
+    typename TestFixture::Source result = traverse::map(
+        emptyContainer, [](int x, bool) { return std::make_pair(x * 2, !(x % 3)); }, typename TestFixture::Source());
     EXPECT_EQ(0, result.size());
 }
 
@@ -191,9 +189,8 @@ TYPED_TEST(DoubleSocketedOutputContainersMapTest, map)
 {
     std::map<int, bool> testContainer = {{1, true},  {2, false}, {3, true},  {4, false}, {5, true},
                                          {6, false}, {7, true},  {8, false}, {9, true}};
-    typename TestFixture::Source result = traverse::map(testContainer,
-                                                        [](int x, bool) { return std::make_pair(x * 2, !(x % 3)); },
-                                                        typename TestFixture::Source());
+    typename TestFixture::Source result = traverse::map(
+        testContainer, [](int x, bool) { return std::make_pair(x * 2, !(x % 3)); }, typename TestFixture::Source());
     ASSERT_EQ(9, result.size());
     for (int i = 1; i <= 9; ++i) {
         int key = i * 2;
@@ -210,8 +207,8 @@ TYPED_TEST(DoubleSocketedOutputContainersMapTest, mapWithAnotherType)
     using ResultType = typename InnerTypeChanger<typename TestFixture::Source, int, double>::type;
     std::map<int, bool> testContainer = {{1, true},  {2, false}, {3, true},  {4, false}, {5, true},
                                          {6, false}, {7, true},  {8, false}, {9, true}};
-    ResultType result = traverse::map(testContainer, [](int x, bool) { return std::make_pair(x * 2, x * 2.0); },
-                                      ResultType());
+    ResultType result = traverse::map(
+        testContainer, [](int x, bool) { return std::make_pair(x * 2, x * 2.0); }, ResultType());
     ASSERT_EQ(9, result.size());
     for (int i = 1; i <= 9; ++i) {
         int key = i * 2;
@@ -228,9 +225,8 @@ TYPED_TEST_SUITE(DoubleSocketedUnorderedInputContainersMapTest, DoubleSocketedUn
 TYPED_TEST(DoubleSocketedUnorderedInputContainersMapTest, mapEmpty)
 {
     typename TestFixture::Source emptyContainer;
-    std::map<int, bool> result = traverse::map(emptyContainer,
-                                               [](int x, bool) { return std::make_pair(x * 2, !(x % 3)); },
-                                               std::map<int, bool>());
+    std::map<int, bool> result = traverse::map(
+        emptyContainer, [](int x, bool) { return std::make_pair(x * 2, !(x % 3)); }, std::map<int, bool>());
     EXPECT_EQ(0, result.size());
 }
 
@@ -239,8 +235,8 @@ TYPED_TEST(DoubleSocketedUnorderedInputContainersMapTest, map)
     typename TestFixture::Source testContainer = {{1, true},  {2, false}, {3, true},  {4, false}, {5, true},
                                                   {6, false}, {7, true},  {8, false}, {9, true}};
     ;
-    std::map<int, bool> result = traverse::map(testContainer, [](int x, bool) { return std::make_pair(x * 2, !(x % 3)); },
-                                               std::map<int, bool>());
+    std::map<int, bool> result = traverse::map(
+        testContainer, [](int x, bool) { return std::make_pair(x * 2, !(x % 3)); }, std::map<int, bool>());
     ASSERT_EQ(9, result.size());
     for (int i = 1; i <= 9; ++i) {
         int key = i * 2;
@@ -254,7 +250,8 @@ TYPED_TEST(DoubleSocketedUnorderedInputContainersMapTest, mapToSingleSocketed)
     typename TestFixture::Source testContainer = {{1, true},  {2, false}, {3, true},  {4, false}, {5, true},
                                                   {6, false}, {7, true},  {8, false}, {9, true}};
     ;
-    std::vector<int> result = traverse::map(testContainer, [](int x, bool) { return x * 2; }, std::vector<int>());
+    std::vector<int> result = traverse::map(
+        testContainer, [](int x, bool) { return x * 2; }, std::vector<int>());
     std::sort(result.begin(), result.end());
     ASSERT_EQ(9, result.size());
     for (size_t i = 1; i <= 9; ++i)
@@ -266,9 +263,8 @@ TYPED_TEST(DoubleSocketedUnorderedInputContainersMapTest, mapWithAnotherType)
     typename TestFixture::Source testContainer = {{1, true},  {2, false}, {3, true},  {4, false}, {5, true},
                                                   {6, false}, {7, true},  {8, false}, {9, true}};
 
-    std::map<int, double> result = traverse::map(testContainer,
-                                                 [](int x, bool) { return std::make_pair(x * 2, x * 2.0); },
-                                                 std::map<int, double>());
+    std::map<int, double> result = traverse::map(
+        testContainer, [](int x, bool) { return std::make_pair(x * 2, x * 2.0); }, std::map<int, double>());
     ASSERT_EQ(9, result.size());
     for (int i = 1; i <= 9; ++i) {
         int key = i * 2;
@@ -326,9 +322,8 @@ TYPED_TEST_SUITE(DoubleSocketedUnorderedOutputContainersMapTest, DoubleSocketedU
 TYPED_TEST(DoubleSocketedUnorderedOutputContainersMapTest, mapEmpty)
 {
     std::map<int, bool> emptyContainer;
-    typename TestFixture::Source result = traverse::map(emptyContainer,
-                                                        [](int x, bool) { return std::make_pair(x * 2, !(x % 3)); },
-                                                        typename TestFixture::Source());
+    typename TestFixture::Source result = traverse::map(
+        emptyContainer, [](int x, bool) { return std::make_pair(x * 2, !(x % 3)); }, typename TestFixture::Source());
     EXPECT_EQ(0, result.size());
 }
 
@@ -336,9 +331,8 @@ TYPED_TEST(DoubleSocketedUnorderedOutputContainersMapTest, map)
 {
     std::map<int, bool> testContainer = {{1, true},  {2, false}, {3, true},  {4, false}, {5, true},
                                          {6, false}, {7, true},  {8, false}, {9, true}};
-    typename TestFixture::Source result = traverse::map(testContainer,
-                                                        [](int x, bool) { return std::make_pair(x * 2, !(x % 3)); },
-                                                        typename TestFixture::Source());
+    typename TestFixture::Source result = traverse::map(
+        testContainer, [](int x, bool) { return std::make_pair(x * 2, !(x % 3)); }, typename TestFixture::Source());
     ASSERT_EQ(9, result.size());
     for (int i = 1; i <= 9; ++i) {
         int key = i * 2;
@@ -355,8 +349,8 @@ TYPED_TEST(DoubleSocketedUnorderedOutputContainersMapTest, mapWithAnotherType)
     using ResultType = typename InnerTypeChanger<typename TestFixture::Source, int, double>::type;
     std::map<int, bool> testContainer = {{1, true},  {2, false}, {3, true},  {4, false}, {5, true},
                                          {6, false}, {7, true},  {8, false}, {9, true}};
-    ResultType result = traverse::map(testContainer, [](int x, bool) { return std::make_pair(x * 2, x * 2.0); },
-                                      ResultType());
+    ResultType result = traverse::map(
+        testContainer, [](int x, bool) { return std::make_pair(x * 2, x * 2.0); }, ResultType());
     ASSERT_EQ(9, result.size());
     for (int i = 1; i <= 9; ++i) {
         int key = i * 2;

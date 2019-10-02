@@ -230,9 +230,8 @@ struct Trampoline
         Future<T, FailureT> result = Future<T, FailureT>::create();
         m_future
             .onSuccess([result](const T &v) noexcept { tasks::runAndForget([result, v] { result.fillSuccess(v); }); })
-            .onFailure([result](const FailureT &f) noexcept {
-                tasks::runAndForget([result, f] { result.fillFailure(f); });
-            });
+            .onFailure(
+                [result](const FailureT &f) noexcept { tasks::runAndForget([result, f] { result.fillFailure(f); }); });
         return result;
     }
 

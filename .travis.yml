@@ -44,7 +44,7 @@ jobs:
     script:
     - docker run --rm -v $(pwd):/asynqro -e "CXX=clang++" -e "CC=clang" --entrypoint=/clangtidy_check.sh dkormalev/asynqro-builder
   - <<: *build
-    name: Codestyle check (clang-format 6)
+    name: Codestyle check (clang-format 9)
     script:
     - docker run --rm -v $(pwd):/asynqro --entrypoint=/codestyle_check.sh dkormalev/asynqro-builder
   - <<: *build
