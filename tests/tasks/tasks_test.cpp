@@ -67,6 +67,20 @@ TEST_F(TasksTest, changeCapacities)
     EXPECT_EQ(dispatcher->capacity(), dispatcher->subPoolCapacity(TaskType::Custom, -5));
 }
 
+TEST_F(TasksTest, pauseDoesntAffectCapacityGetter)
+{
+    auto dispatcher = TasksDispatcher::instance();
+
+    int32_t customLimit = dispatcher->subPoolCapacity(TaskType::Custom, 42) + 1;
+    EXPECT_NE(customLimit, dispatcher->subPoolCapacity(TaskType::Custom, 42));
+    dispatcher->addCustomTag(42, customLimit);
+    EXPECT_EQ(customLimit, dispatcher->subPoolCapacity(TaskType::Custom, 42));
+    dispatcher->pauseCustomTag(42);
+    EXPECT_EQ(customLimit, dispatcher->subPoolCapacity(TaskType::Custom, 42));
+    dispatcher->resumeCustomTag(42);
+    EXPECT_EQ(customLimit, dispatcher->subPoolCapacity(TaskType::Custom, 42));
+}
+
 TEST_F(TasksTest, changeIdleLoopsAmount)
 {
     auto dispatcher = TasksDispatcher::instance();
@@ -472,6 +486,108 @@ TEST_F(TasksTest, mappedTaskWithFailure)
     ASSERT_TRUE(mappedFuture.isFailed());
     EXPECT_EQ(0, mappedFuture.result());
     EXPECT_EQ("42", mappedFuture.failureReason());
+}
+
+TEST_F(TasksTest, pause)
+{
+    auto dispatcher = TasksDispatcher::instance();
+
+    dispatcher->addCustomTag(42, 3);
+    dispatcher->resumeCustomTag(42);
+    dispatcher->pauseCustomTag(42);
+    auto f = run(TaskType::Custom, 42, []() {});
+    f.wait(500);
+    ASSERT_FALSE(f.isCompleted());
+    dispatcher->resumeCustomTag(42);
+    f.wait(100);
+    ASSERT_TRUE(f.isCompleted());
+    ASSERT_TRUE(f.isSucceeded());
+}
+
+TEST_F(TasksTest, noPauseForDefaultCustomSubpool)
+{
+    auto dispatcher = TasksDispatcher::instance();
+
+    dispatcher->resumeCustomTag(0);
+    dispatcher->pauseCustomTag(0);
+    auto f = run(TaskType::Custom, 0, []() {});
+    f.wait(100);
+    ASSERT_TRUE(f.isCompleted());
+    ASSERT_TRUE(f.isSucceeded());
+}
+
+TEST_F(TasksTest, pauseDoesntBlockOtherSubpools)
+{
+    auto dispatcher = TasksDispatcher::instance();
+
+    dispatcher->addCustomTag(42, 3);
+    dispatcher->resumeCustomTag(42);
+    dispatcher->pauseCustomTag(42);
+    auto f = run(TaskType::Custom, 42, []() {});
+    f.wait(500);
+    ASSERT_FALSE(f.isCompleted());
+
+    run(TaskType::Custom, 42, []() {});
+    run(TaskType::Custom, 42, []() {});
+    run(TaskType::Custom, 42, []() {});
+    run(TaskType::Custom, 42, []() {});
+
+    auto f2 = run(TaskType::Custom, 21, []() {});
+    f2.wait(100);
+    ASSERT_TRUE(f2.isCompleted());
+    ASSERT_TRUE(f2.isSucceeded());
+
+    auto f3 = run(TaskType::Custom, 0, []() {});
+    f3.wait(100);
+    ASSERT_TRUE(f3.isCompleted());
+    ASSERT_TRUE(f3.isSucceeded());
+
+    auto f4 = run(TaskType::Intensive, 0, []() {});
+    f4.wait(100);
+    ASSERT_TRUE(f4.isCompleted());
+    ASSERT_TRUE(f4.isSucceeded());
+
+    dispatcher->resumeCustomTag(42);
+    f.wait(100);
+    ASSERT_TRUE(f.isCompleted());
+    ASSERT_TRUE(f.isSucceeded());
+}
+
+TEST_F(TasksTest, pauseDoesntAffectCapacity)
+{
+    auto dispatcher = TasksDispatcher::instance();
+
+    dispatcher->addCustomTag(42, 3);
+    dispatcher->resumeCustomTag(42);
+    dispatcher->pauseCustomTag(42);
+    auto f = run(TaskType::Custom, 42, []() {});
+    f.wait(500);
+    ASSERT_FALSE(f.isCompleted());
+    dispatcher->resumeCustomTag(42);
+    f.wait(100);
+    ASSERT_TRUE(f.isCompleted());
+    ASSERT_TRUE(f.isSucceeded());
+
+    std::atomic_bool ready{false};
+    int n = 10;
+    std::vector<TestFuture<TasksTestResult<int>>> results;
+    for (int i = 0; i < n; ++i) {
+        results.push_back(run(TaskType::Custom, 42, [&ready, i]() {
+            while (!ready)
+                std::this_thread::sleep_for(1ms);
+            return pairedResult(i * 2);
+        }));
+    }
+    for (int i = 0; i < n; ++i)
+        EXPECT_FALSE(results[static_cast<size_t>(i)].isCompleted());
+    ready = true;
+    std::set<std::thread::id> threads;
+    for (int i = n - 1; i >= 0; --i) {
+        auto result = results[static_cast<size_t>(i)].result();
+        threads.insert(result.first);
+        EXPECT_NE(currentThread(), result.first);
+    }
+    EXPECT_EQ(3, threads.size());
 }
 
 TestFuture<int> deepRecursion(int step, int limit)
