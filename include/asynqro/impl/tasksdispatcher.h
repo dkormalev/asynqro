@@ -89,6 +89,9 @@ public:
     void addCustomTag(int32_t tag, int32_t capacity);
     void setBoundCapacity(int32_t capacity);
 
+    void pauseCustomTag(int32_t tag);
+    void resumeCustomTag(int32_t tag);
+
     int_fast32_t idleLoopsAmount() const;
     void setIdleLoopsAmount(int_fast32_t amount);
 

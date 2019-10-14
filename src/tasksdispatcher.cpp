@@ -22,6 +22,8 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+#include "asynqro/impl/tasksdispatcher.h"
+
 #include "asynqro/impl/containers_traverse.h"
 #include "asynqro/impl/spinlock.h"
 #include "asynqro/impl/taskslist_p.h"
@@ -62,9 +64,11 @@ private:
     bool scheduleSingleTask(const TaskInfo &task, int32_t workerId) noexcept;
 
     int32_t customTagCapacity(int32_t tag) const;
+    bool isCustomTagPaused(int32_t tag) const;
 
     std::unordered_map<uint64_t, int32_t> subPoolsUsage; // pool info -> amount
     std::unordered_map<int32_t, int32_t> customTagCapacities; // tag -> capacity
+    std::unordered_set<int32_t> pausedCustomTags;
 
     TasksList tasksQueue; // All except bound ones to known workers
 
@@ -185,6 +189,28 @@ void TasksDispatcher::setBoundCapacity(int32_t capacity)
     if (!lock.isLocked())
         return;
     d_ptr->boundCapacity = std::max(static_cast<int32_t>(d_ptr->workersBindingsCount.size()), capacity);
+}
+
+void TasksDispatcher::pauseCustomTag(int32_t tag)
+{
+    if (tag <= 0)
+        return;
+    detail::SpinLockHolder lock(&d_ptr->mainLock, d_ptr->poisoningStarted);
+    if (!lock.isLocked())
+        return;
+    d_ptr->pausedCustomTags.insert(tag);
+}
+
+void TasksDispatcher::resumeCustomTag(int32_t tag)
+{
+    if (tag <= 0)
+        return;
+    detail::SpinLockHolder lock(&d_ptr->mainLock, d_ptr->poisoningStarted);
+    if (!lock.isLocked())
+        return;
+    d_ptr->pausedCustomTags.erase(tag);
+    lock.unlock();
+    d_ptr->schedule();
 }
 
 int_fast32_t TasksDispatcher::idleLoopsAmount() const
@@ -388,7 +414,7 @@ bool TasksDispatcherPrivate::scheduleSingleTask(const TaskInfo &task, int32_t wo
         capacityLeft = INTENSIVE_CAPACITY;
         break;
     case TaskType::Custom:
-        capacityLeft = customTagCapacity(task.tag);
+        capacityLeft = isCustomTagPaused(task.tag) ? 0 : customTagCapacity(task.tag);
         break;
     default:
         break;
@@ -407,6 +433,10 @@ int32_t TasksDispatcherPrivate::customTagCapacity(int32_t tag) const
 {
     auto capacityIt = customTagCapacities.find(tag);
     return customTagCapacities.cend() == capacityIt ? DEFAULT_CUSTOM_CAPACITY : capacityIt->second;
+}
+bool TasksDispatcherPrivate::isCustomTagPaused(int32_t tag) const
+{
+    return pausedCustomTags.count(tag);
 }
 
 Worker::Worker(int32_t id) : id(id)

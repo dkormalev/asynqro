@@ -414,7 +414,7 @@ TEST_F(RepeatTest, repeatFutureDeepWithOccasionalTrampoline)
             if (step >= DEEP_RECURSION_LIMIT)
                 return promise.future();
             return tasks::run([step]() -> RepeaterResult<int, int> {
-                if (step % 1000)
+                if (step % 500)
                     return Continue(step + 1);
                 return TrampolinedContinue(step + 1);
             });
