@@ -1,4 +1,4 @@
-#Requires clang-format >= 6.0.0
+#Requires clang-format >= 7.0.0
 
 ---
 DisableFormat: false
