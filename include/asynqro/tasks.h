@@ -29,6 +29,7 @@
 #include "asynqro/impl/containers_traverse.h"
 #include "asynqro/impl/tasksdispatcher.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace asynqro {

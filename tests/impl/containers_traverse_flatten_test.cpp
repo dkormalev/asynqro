@@ -11,6 +11,7 @@
 #    include <QVector>
 #endif
 
+#include <algorithm>
 #include <list>
 #include <map>
 #include <set>
