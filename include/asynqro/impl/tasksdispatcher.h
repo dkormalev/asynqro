@@ -136,7 +136,7 @@ struct TaskRunner
         using FinalFailure =
             std::conditional_t<RunnerInfo::deferredFailureShouldBeConverted, typename RunnerInfo::PlainFailure,
                                detail::FailureTypeIfFuture_T<RawResult, typename RunnerInfo::PlainFailure>>;
-        Promise<std::conditional_t<std::is_same_v<RawResult, void>, bool, NonVoidResult>, FinalFailure> promise;
+        Promise<std::conditional_t<std::is_same_v<RawResult, void>, bool, NonVoidResult>, FinalFailure> promise{};
 
         //TODO: MSVC2019+: move constexpr if back into lambda when MSFT will fix their issue with constexpr in lambdas
         // NOLINTNEXTLINE(bugprone-branch-clone)
