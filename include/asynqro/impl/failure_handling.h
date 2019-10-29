@@ -36,13 +36,20 @@
 namespace asynqro {
 namespace failure {
 template <typename Failure>
-inline Failure failureFromString(const std::string &)
+inline Failure failureFromString(std::string &&)
 {
     return Failure();
 }
 
+template <typename Failure>
+inline Failure failureFromString(const std::string &s)
+{
+    std::string copy = s;
+    return failureFromString<Failure>(std::move(copy));
+}
+
 template <>
-inline std::string failureFromString<std::string>(const std::string &s)
+inline std::string failureFromString<std::string>(std::string &&s)
 {
     return s;
 }

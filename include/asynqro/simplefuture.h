@@ -30,7 +30,7 @@
 namespace asynqro {
 namespace failure {
 template <>
-inline std::any failureFromString<std::any>(const std::string &s)
+inline std::any failureFromString<std::any>(std::string &&s)
 {
     return std::any(s);
 }

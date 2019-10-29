@@ -1,15 +1,5 @@
 #include "futurebasetest.h"
 
-namespace asynqro {
-namespace failure {
-template <>
-inline int failureFromString<int>(const std::string &s)
-{
-    return 42;
-}
-} // namespace failure
-} // namespace asynqro
-
 class FutureMorphismsTest : public FutureBaseTest
 {};
 

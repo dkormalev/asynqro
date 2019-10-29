@@ -80,7 +80,7 @@ TEST_F(FutureFailureTest, withFailureArgs)
     EXPECT_EQ("failed", future.failureReason());
 }
 
-TEST_F(FutureFailureTest, failureFromStringSanity)
+TEST_F(FutureFailureTest, failureFromStringSanityRValue)
 {
     struct Dummy
     {
@@ -92,7 +92,25 @@ TEST_F(FutureFailureTest, failureFromStringSanity)
     Dummy dummy = failure::failureFromString<Dummy>("abc");
     int integer = failure::failureFromString<int>("abc");
     EXPECT_EQ("abc", str);
-    EXPECT_EQ(0, integer);
+    EXPECT_EQ(42, integer);
+    EXPECT_EQ(0, dummy.zero);
+    EXPECT_EQ(3, dummy.nonZero);
+}
+
+TEST_F(FutureFailureTest, failureFromStringSanityLValue)
+{
+    struct Dummy
+    {
+        int nonZero = 3;
+        int zero = 0;
+    };
+
+    std::string source = "abc";
+    std::string str = failure::failureFromString<std::string>(source);
+    Dummy dummy = failure::failureFromString<Dummy>(source);
+    int integer = failure::failureFromString<int>(source);
+    EXPECT_EQ("abc", str);
+    EXPECT_EQ(42, integer);
     EXPECT_EQ(0, dummy.zero);
     EXPECT_EQ(3, dummy.nonZero);
 }

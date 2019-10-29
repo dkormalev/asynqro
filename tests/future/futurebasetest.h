@@ -10,6 +10,16 @@
 
 using namespace std::chrono_literals;
 
+namespace asynqro {
+namespace failure {
+template <>
+inline int failureFromString<int>(std::string &&s)
+{
+    return 42;
+}
+} // namespace failure
+} // namespace asynqro
+
 using namespace asynqro;
 using namespace asynqro::detail;
 

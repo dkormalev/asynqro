@@ -20,14 +20,6 @@ struct ConvertingRunnerInfo
     }
 };
 
-namespace asynqro::failure {
-template <>
-inline int failureFromString<int>(const std::string &s)
-{
-    return 21;
-}
-} // namespace asynqro::failure
-
 TEST_F(TasksTest, capacities)
 {
     auto dispatcher = TasksDispatcher::instance();
