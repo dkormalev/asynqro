@@ -720,7 +720,7 @@ TEST_F(FutureBasicsTest, waitTimedPositive)
         std::this_thread::sleep_for(500ms);
         promise.success(42);
     }).detach();
-    bool result = future.wait(30000);
+    bool result = future.wait(30s);
     EXPECT_TRUE(result);
     ASSERT_TRUE(future.isCompleted());
     EXPECT_TRUE(future.isSucceeded());
@@ -730,6 +730,34 @@ TEST_F(FutureBasicsTest, waitTimedPositive)
 }
 
 TEST_F(FutureBasicsTest, waitTimedNegative)
+{
+    TestPromise<int> promise;
+    TestFuture<int> future = promise.future();
+    EXPECT_FALSE(future.isCompleted());
+    bool result = future.wait(500ms);
+    EXPECT_FALSE(result);
+    EXPECT_FALSE(future.isCompleted());
+}
+
+TEST_F(FutureBasicsTest, waitIntTimedPositive)
+{
+    TestPromise<int> promise;
+    TestFuture<int> future = promise.future();
+    EXPECT_FALSE(future.isCompleted());
+    std::thread([promise]() {
+        std::this_thread::sleep_for(500ms);
+        promise.success(42);
+    }).detach();
+    bool result = future.wait(30000);
+    EXPECT_TRUE(result);
+    ASSERT_TRUE(future.isCompleted());
+    EXPECT_TRUE(future.isSucceeded());
+    EXPECT_FALSE(future.isFailed());
+    EXPECT_EQ(42, future.result());
+    EXPECT_TRUE(future.failureReason().empty());
+}
+
+TEST_F(FutureBasicsTest, waitIntTimedNegative)
 {
     TestPromise<int> promise;
     TestFuture<int> future = promise.future();

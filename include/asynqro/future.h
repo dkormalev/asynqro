@@ -155,52 +155,63 @@ public:
 
     bool isValid() const noexcept { return static_cast<bool>(d); }
 
-    bool wait(int64_t timeout = -1) const noexcept
+    bool wait(int64_t timeout) const noexcept { return wait(std::chrono::milliseconds(timeout)); }
+
+    bool wait(std::chrono::milliseconds timeout = std::chrono::milliseconds(0)) const noexcept
     {
         using namespace std::chrono_literals;
         assert(d);
         if (isCompleted())
             return true;
-        bool waitForever = timeout < 1;
-        bool maintainEvents =
+        bool waitForever = timeout.count() < 1;
+        bool maintainEvents = false;
 #ifdef ASYNQRO_QT_SUPPORT
-            qApp && QThread::currentThread() == qApp->thread();
-#else
-            false;
+        maintainEvents = qApp && QThread::currentThread() == qApp->thread();
 #endif
-        if (maintainEvents || !waitForever) {
-            auto finalPoint = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(timeout);
+        if (maintainEvents) {
+#ifdef ASYNQRO_QT_SUPPORT
+            auto finalPoint = std::chrono::high_resolution_clock::now() + timeout;
             while (waitForever || (std::chrono::high_resolution_clock::now() <= finalPoint)) {
                 if (isCompleted())
                     return true;
-#ifdef ASYNQRO_QT_SUPPORT
-                if (maintainEvents)
-                    QCoreApplication::processEvents();
-                else
-#endif
-                    std::this_thread::sleep_for(1ms); // NOLINT(readability-misleading-indentation)
+                QCoreApplication::processEvents();
             }
+#endif
+        } else if (waitForever) {
+            // Optimized version with no extra memory allocations
+            std::mutex mutex;
+            std::condition_variable waiter;
+            std::unique_lock lock(mutex);
+            bool wasInSameThread = false;
+            onComplete([&waiter, &mutex, &wasInSameThread, waitingThread = std::this_thread::get_id()]() {
+                if (std::this_thread::get_id() == waitingThread) {
+                    wasInSameThread = true;
+                    return;
+                }
+                mutex.lock(); // We wait here for waiter start
+                mutex.unlock();
+                waiter.notify_all();
+            });
+            if (!wasInSameThread)
+                waiter.wait(lock);
         } else {
-            if constexpr (std::is_copy_constructible_v<T>) {
-                std::mutex mutex;
-                std::condition_variable waiter;
-                std::unique_lock lock(mutex);
-                bool wasInSameThread = false;
-                recoverValue(T()).onSuccess(
-                    [&waiter, &mutex, &wasInSameThread, waitingThread = std::this_thread::get_id()](const T &) {
-                        if (std::this_thread::get_id() == waitingThread) {
-                            wasInSameThread = true;
-                            return;
-                        }
-                        mutex.lock(); // We wait here for waiter start
-                        mutex.unlock();
-                        waiter.notify_all();
-                    });
-                if (!wasInSameThread)
-                    waiter.wait(lock);
-            } else {
-                while (!isCompleted())
-                    std::this_thread::sleep_for(1ms);
+            try {
+                auto mutex = std::make_shared<std::mutex>();
+                auto waiter = std::make_shared<std::condition_variable>();
+                std::unique_lock lock(*mutex);
+                auto wasInSameThread = std::make_shared<bool>(false);
+                onComplete([waiter, mutex, wasInSameThread, waitingThread = std::this_thread::get_id()]() {
+                    if (std::this_thread::get_id() == waitingThread) {
+                        *wasInSameThread = true;
+                        return;
+                    }
+                    mutex->lock(); // We wait here for waiter start
+                    mutex->unlock();
+                    waiter->notify_all();
+                });
+                if (!*wasInSameThread)
+                    waiter->wait_for(lock, timeout);
+            } catch (...) {
             }
         }
         return isCompleted();

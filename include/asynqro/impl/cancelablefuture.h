@@ -30,6 +30,8 @@
 
 #include "asynqro/impl/failure_handling.h"
 
+#include <chrono>
+
 namespace asynqro {
 template <typename T, typename Failure>
 class Future;
@@ -93,7 +95,11 @@ public:
     bool isFailed() const noexcept { return future().isFailed(); }
     bool isSucceeded() const noexcept { return future().isSucceeded(); }
     bool isValid() const noexcept { return true; }
-    bool wait(long long timeout = -1) const noexcept { return future().wait(timeout); }
+    bool wait(long long timeout) const noexcept { return future().wait(std::chrono::milliseconds(timeout)); }
+    bool wait(std::chrono::milliseconds timeout = std::chrono::milliseconds(0)) const noexcept
+    {
+        return future().wait(timeout);
+    }
     T result() const noexcept { return future().result(); }
     FailureType failureReason() const noexcept { return future().failureReason(); }
 
