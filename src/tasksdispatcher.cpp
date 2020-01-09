@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <chrono>
 #include <condition_variable>
+#include <deque>
 #include <map>
 #include <mutex>
 #include <optional>
@@ -66,7 +67,7 @@ private:
     int32_t customTagCapacity(int32_t tag) const;
     bool isCustomTagPaused(int32_t tag) const;
 
-    std::unordered_map<uint64_t, int32_t> subPoolsUsage; // pool info -> amount
+    std::map<uint64_t, int32_t> subPoolsUsage; // pool info -> amount
     std::unordered_map<int32_t, int32_t> customTagCapacities; // tag -> capacity
     std::unordered_set<int32_t> pausedCustomTags;
 
@@ -111,7 +112,7 @@ protected:
 private:
     std::mutex waitingLock;
     std::condition_variable waiter;
-    TasksList workerTasks;
+    std::deque<TaskInfo> workerTasks;
     int32_t id = 0;
     int_fast32_t idleLoopsAmount = 0;
     std::thread myself;
@@ -466,7 +467,7 @@ void Worker::addTask(TaskInfo &&task) noexcept
     try {
         detail::SpinLockHolder lock(&tasksLock);
         bool wasEmpty = workerTasks.empty();
-        workerTasks.insert(std::move(task));
+        workerTasks.push_back(std::move(task));
         if (wasEmpty) {
             std::lock_guard waitLock(waitingLock);
             waiter.notify_all();
@@ -493,9 +494,8 @@ void Worker::run()
         taskFound = false;
         tasksLock.lock();
         if (!workerTasks.empty()) {
-            auto first = workerTasks.begin();
-            task = std::move(*first);
-            workerTasks.erase(first);
+            task = std::move(workerTasks.front());
+            workerTasks.pop_front();
             taskFound = true;
             taskObserved = true;
         }
