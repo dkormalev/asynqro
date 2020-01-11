@@ -30,6 +30,7 @@
 #include "asynqro/tasks.h"
 
 #include <algorithm>
+#include <bitset>
 #include <chrono>
 #include <condition_variable>
 #include <deque>
@@ -41,14 +42,28 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-
-static const int32_t INTENSIVE_CAPACITY = static_cast<int32_t>(std::max(std::thread::hardware_concurrency(), 1u));
-static const int32_t DEFAULT_CUSTOM_CAPACITY = INTENSIVE_CAPACITY;
-static const int32_t DEFAULT_TOTAL_CAPACITY = std::max(64, INTENSIVE_CAPACITY * 8);
-static const int32_t DEFAULT_BOUND_CAPACITY = DEFAULT_TOTAL_CAPACITY / 4;
+#include <limits>
 
 namespace asynqro::tasks {
+static constexpr int32_t MAX_ALLOWED_CAPACITY = 512;
+
+static const int32_t INTENSIVE_CAPACITY = std::clamp<int32_t>(std::thread::hardware_concurrency(), 1,
+                                                              MAX_ALLOWED_CAPACITY);
+static const int32_t DEFAULT_CUSTOM_CAPACITY = INTENSIVE_CAPACITY;
+static const int32_t DEFAULT_TOTAL_CAPACITY = std::clamp(INTENSIVE_CAPACITY * 8, 64, MAX_ALLOWED_CAPACITY);
+static const int32_t DEFAULT_BOUND_CAPACITY = DEFAULT_TOTAL_CAPACITY / 4;
+
 static constexpr uint64_t INTENSIVE_SUBPOOL = packPoolInfo(TaskType::Intensive, 0);
+
+template <size_t N>
+int32_t firstSetBit(const std::bitset<N> &bitset, int32_t start = 0)
+{
+    for (int32_t i = start; i < N; ++i) {
+        if (bitset.test(i))
+            return i;
+    }
+    return -1;
+}
 
 class Worker;
 class TasksDispatcherPrivate
@@ -74,7 +89,8 @@ private:
     TasksList tasksQueue; // All except bound ones to known workers
 
     std::vector<Worker *> allWorkers;
-    std::unordered_set<int32_t> availableWorkers; // Indices in allWorkers vector, except bound
+    //TODO: replace with dynamic bitset implementation
+    std::bitset<MAX_ALLOWED_CAPACITY> availableWorkers; // Indices in allWorkers vector, except bound
 
     std::unordered_map<int32_t, int32_t> tagToWorkerBindings; // tag -> index in allWorkers vector
     std::unordered_map<int32_t, int> workersBindingsCount; // Index in allWorkers vector -> amount of tags bound
@@ -167,6 +183,7 @@ void TasksDispatcher::setCapacity(int32_t capacity)
         return;
     capacity = std::max(INTENSIVE_CAPACITY, capacity);
     capacity = std::max(static_cast<int32_t>(d_ptr->allWorkers.size()), capacity);
+    capacity = std::min(capacity, MAX_ALLOWED_CAPACITY);
     d_ptr->capacity = capacity;
     d_ptr->allWorkers.reserve(static_cast<size_t>(capacity));
     d_ptr->customTagCapacities[0] = capacity;
@@ -264,8 +281,8 @@ void TasksDispatcher::insertTaskInfo(std::function<void()> &&wrappedTask, TaskTy
             d_ptr->allWorkers[static_cast<size_t>(boundWorker->second)]->addTask(std::move(taskInfo));
             return;
         }
-    } else if (!d_ptr->availableWorkers.empty() && d_ptr->tasksQueue.empty()) {
-        int32_t workerId = *d_ptr->availableWorkers.begin();
+    } else if (d_ptr->availableWorkers.any() && d_ptr->tasksQueue.empty()) {
+        int32_t workerId = firstSetBit(d_ptr->availableWorkers);
         if (d_ptr->scheduleSingleTask(taskInfo, workerId)) {
             lock.unlock();
             d_ptr->allWorkers[static_cast<size_t>(workerId)]->addTask(std::move(taskInfo));
@@ -282,7 +299,7 @@ void TasksDispatcher::insertTaskInfo(std::function<void()> &&wrappedTask, TaskTy
         }
         return;
     }
-    if (!d_ptr->availableWorkers.empty() || static_cast<int32_t>(d_ptr->allWorkers.size()) < capacity()) {
+    if (d_ptr->availableWorkers.any() || static_cast<int32_t>(d_ptr->allWorkers.size()) < capacity()) {
         if (type == TaskType::Intensive && d_ptr->subPoolsUsage[INTENSIVE_SUBPOOL] >= INTENSIVE_CAPACITY)
             return;
 
@@ -306,7 +323,7 @@ void TasksDispatcherPrivate::taskFinished(int32_t workerId, const TaskInfo &task
         }
     }
     if (askingForNext) {
-        availableWorkers.insert(workerId);
+        availableWorkers.set(workerId);
         lock.unlock();
         schedule(workerId);
     }
@@ -319,10 +336,10 @@ void TasksDispatcherPrivate::schedule(int32_t workerId) noexcept
         return;
     if (tasksQueue.empty())
         return;
-    if (availableWorkers.empty() && !createNewWorkerIfPossible())
+    if (availableWorkers.none() && !createNewWorkerIfPossible())
         return;
 
-    workerId = workerId < 0 || !availableWorkers.count(workerId) ? *availableWorkers.cbegin() : workerId;
+    workerId = (workerId < 0 || !availableWorkers.test(workerId)) ? firstSetBit(availableWorkers) : workerId;
 
     int32_t boundWorkerId = -1;
     bool newBoundTask = false;
@@ -338,8 +355,13 @@ void TasksDispatcherPrivate::schedule(int32_t workerId) noexcept
             } else if (static_cast<int32_t>(workersBindingsCount.size()) < boundCapacity) {
                 newBoundTask = true;
                 if (workersBindingsCount.count(workerId)) {
-                    boundWorkerId = traverse::findIf(
-                        availableWorkers, [this](int32_t x) { return !workersBindingsCount.count(x); }, -1);
+                    for (int32_t found = firstSetBit(availableWorkers); found != -1;
+                         found = firstSetBit(availableWorkers, found + 1)) {
+                        if (!workersBindingsCount.count(found)) {
+                            boundWorkerId = found;
+                            break;
+                        }
+                    }
                     if (boundWorkerId < 0 && createNewWorkerIfPossible())
                         boundWorkerId = static_cast<int32_t>(allWorkers.size()) - 1;
                 } else {
@@ -347,23 +369,22 @@ void TasksDispatcherPrivate::schedule(int32_t workerId) noexcept
                 }
             } else {
                 newBoundTask = true;
-                auto minimizer = [this](int32_t acc, int32_t x) {
-                    auto xIt = workersBindingsCount.find(x);
-                    auto accIt = workersBindingsCount.find(acc);
-                    if (workersBindingsCount.cend() == xIt)
-                        return acc;
-                    if (workersBindingsCount.cend() == accIt)
-                        return x;
-                    return accIt->second > xIt->second ? x : acc;
-                };
-                boundWorkerId = traverse::reduce(availableWorkers, minimizer, -1);
+                int foundMin = std::numeric_limits<int>::max();
+                for (int32_t found = firstSetBit(availableWorkers); found != -1;
+                     found = firstSetBit(availableWorkers, found + 1)) {
+                    auto bindingIt = workersBindingsCount.find(found);
+                    if (bindingIt != workersBindingsCount.end() && bindingIt->second < foundMin) {
+                        boundWorkerId = found;
+                        foundMin = bindingIt->second;
+                    }
+                }
             }
             if (boundWorkerId >= 0) {
                 if (newBoundTask) {
                     ++workersBindingsCount[boundWorkerId];
                     tagToWorkerBindings[task.tag] = boundWorkerId;
                 }
-                availableWorkers.erase(boundWorkerId);
+                availableWorkers.reset(boundWorkerId);
                 allWorkers[static_cast<size_t>(boundWorkerId)]->addTask(std::move(task));
                 it = tasksQueue.erase(it);
                 if (boundWorkerId == workerId)
@@ -386,7 +407,7 @@ bool TasksDispatcherPrivate::createNewWorkerIfPossible() noexcept
     int32_t newWorkerId = static_cast<int32_t>(allWorkers.size());
     if (newWorkerId < capacity) {
         try {
-            availableWorkers.insert(newWorkerId);
+            availableWorkers.set(newWorkerId);
         } catch (...) {
             return false;
         }
@@ -426,7 +447,7 @@ bool TasksDispatcherPrivate::scheduleSingleTask(const TaskInfo &task, int32_t wo
     if (capacityLeft <= 0)
         return false;
     ++subPoolsUsage[poolInfo];
-    availableWorkers.erase(workerId);
+    availableWorkers.reset(workerId);
     return true;
 }
 
@@ -470,7 +491,7 @@ void Worker::addTask(TaskInfo &&task) noexcept
         workerTasks.push_back(std::move(task));
         if (wasEmpty) {
             std::lock_guard waitLock(waitingLock);
-            waiter.notify_all();
+            waiter.notify_one();
         }
     } catch (...) {
     }
@@ -481,7 +502,7 @@ void Worker::poisonPill()
 {
     poisoned.store(true, std::memory_order_relaxed);
     std::lock_guard lock(waitingLock);
-    waiter.notify_all();
+    waiter.notify_one();
 }
 
 void Worker::run()

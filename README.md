@@ -168,6 +168,8 @@ Asynqro's task scheduling provides next functionality:
   - `Thread binding amount` - max amount of threads to be used for thread bound tasks. 1/4 of total pool size by default.
   - `Preheating` - it is possible to *preheat* (i.e. create worker threads) pool in advance. Either whole pool can be preheated or fraction of it.
 
+Limitations:
+- Maximum amount of possible threads is 512. It is an artificial limitation that could be lifted in future versions.
 
 ## Task scheduling performance
 Task scheduling engine should be not only rich in its API but also has good performance in scheduling itself. `benchmarks` directory contains 4 synthetic benchmarks that can show at least some hints about how big the overhead of Asynqro is.
