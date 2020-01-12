@@ -81,8 +81,9 @@ public:
             ++listIt;
             if (listIt == mapIt->second.end()) {
                 ++mapIt;
-                if (mapIt != owner->m_lists.end())
-                    listIt = mapIt->second.begin();
+                while (mapIt != owner->m_lists.end() && mapIt->second.empty())
+                    ++mapIt;
+                listIt = (mapIt == owner->m_lists.end()) ? List::iterator() : mapIt->second.begin();
             }
             return *this;
         }
@@ -128,8 +129,14 @@ public:
                 --m_size;
                 iterator newIt = it;
                 newIt.listIt = list.erase(newIt.listIt);
-                if (newIt.listIt == list.end())
+                if (newIt.listIt == list.end()) {
                     ++newIt.mapIt;
+                    while (newIt.mapIt != m_lists.end() && newIt.mapIt->second.empty())
+                        ++newIt.mapIt;
+                    if (newIt.mapIt == m_lists.end())
+                        return end();
+                    newIt.listIt = newIt.mapIt->second.begin();
+                }
                 return newIt;
             }
         }

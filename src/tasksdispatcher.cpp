@@ -34,6 +34,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <deque>
+#include <limits>
 #include <map>
 #include <mutex>
 #include <optional>
@@ -42,7 +43,6 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <limits>
 
 namespace asynqro::tasks {
 static constexpr int32_t MAX_ALLOWED_CAPACITY = 512;
@@ -56,10 +56,10 @@ static const int32_t DEFAULT_BOUND_CAPACITY = DEFAULT_TOTAL_CAPACITY / 4;
 static constexpr uint64_t INTENSIVE_SUBPOOL = packPoolInfo(TaskType::Intensive, 0);
 
 template <size_t N>
-int32_t firstSetBit(const std::bitset<N> &bitset, int32_t start = 0)
+int32_t firstSetBit(const std::bitset<N> &bitset, int32_t start = 0) noexcept
 {
     for (int32_t i = start; i < N; ++i) {
-        if (bitset.test(i))
+        if (bitset[i])
             return i;
     }
     return -1;
@@ -278,7 +278,7 @@ void TasksDispatcher::insertTaskInfo(std::function<void()> &&wrappedTask, TaskTy
     if (type == TaskType::ThreadBound) {
         auto boundWorker = d_ptr->tagToWorkerBindings.find(tag);
         if (boundWorker != d_ptr->tagToWorkerBindings.cend()) {
-            d_ptr->availableWorkers.reset(boundWorker->second);
+            d_ptr->availableWorkers[boundWorker->second] = false;
             lock.unlock();
             d_ptr->allWorkers[static_cast<size_t>(boundWorker->second)]->addTask(std::move(taskInfo));
             return;
@@ -325,7 +325,7 @@ void TasksDispatcherPrivate::taskFinished(int32_t workerId, const TaskInfo &task
         }
     }
     if (askingForNext) {
-        availableWorkers.set(workerId);
+        availableWorkers[workerId] = true;
         lock.unlock();
         schedule(workerId);
     }
@@ -341,7 +341,7 @@ void TasksDispatcherPrivate::schedule(int32_t workerId) noexcept
     if (availableWorkers.none() && !createNewWorkerIfPossible())
         return;
 
-    workerId = (workerId < 0 || !availableWorkers.test(workerId)) ? firstSetBit(availableWorkers) : workerId;
+    workerId = (workerId < 0 || !availableWorkers[workerId]) ? firstSetBit(availableWorkers) : workerId;
 
     int32_t boundWorkerId = -1;
     bool newBoundTask = false;
@@ -386,7 +386,7 @@ void TasksDispatcherPrivate::schedule(int32_t workerId) noexcept
                     ++workersBindingsCount[boundWorkerId];
                     tagToWorkerBindings[task.tag] = boundWorkerId;
                 }
-                availableWorkers.reset(boundWorkerId);
+                availableWorkers[boundWorkerId] = false;
                 allWorkers[static_cast<size_t>(boundWorkerId)]->addTask(std::move(task));
                 it = tasksQueue.erase(it);
                 if (boundWorkerId == workerId)
@@ -409,7 +409,7 @@ bool TasksDispatcherPrivate::createNewWorkerIfPossible() noexcept
     int32_t newWorkerId = static_cast<int32_t>(allWorkers.size());
     if (newWorkerId < capacity) {
         try {
-            availableWorkers.set(newWorkerId);
+            availableWorkers[newWorkerId] = true;
         } catch (...) {
             return false;
         }
@@ -449,7 +449,7 @@ bool TasksDispatcherPrivate::scheduleSingleTask(const TaskInfo &task, int32_t wo
     if (capacityLeft <= 0)
         return false;
     ++subPoolsUsage[poolInfo];
-    availableWorkers.reset(workerId);
+    availableWorkers[workerId] = false;
     return true;
 }
 

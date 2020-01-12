@@ -127,7 +127,7 @@ TEST_P(RemovalTasksListTest, erase)
 
 TEST(TasksListTest, sizeAndEmptiness)
 {
-    int n = 10;
+    int n = 100;
     TasksList list;
     EXPECT_EQ(0, list.size());
     EXPECT_TRUE(list.empty());
@@ -146,4 +146,103 @@ TEST(TasksListTest, sizeAndEmptiness)
     EXPECT_EQ(0, list.size());
     EXPECT_TRUE(list.empty());
     EXPECT_EQ(list.end(), list.erase(list.end()));
+}
+
+TEST(TasksListTest, sizeAndEmptinessWithDifferentPriorities)
+{
+    int n = 100;
+    TasksList list;
+    EXPECT_EQ(0, list.size());
+    EXPECT_TRUE(list.empty());
+
+    for (int i = 0; i < n; ++i) {
+        TaskPriority priority = TaskPriority::Regular;
+        if (!(n % 5))
+            priority = TaskPriority::Background;
+        if (!(n % 7))
+            priority = TaskPriority::Emergency;
+        list.insert([]() {}, TaskType::Custom, 0, priority);
+        EXPECT_EQ(i + 1, list.size());
+        EXPECT_FALSE(list.empty());
+    }
+
+    auto iterations = 0;
+    auto it = list.begin();
+    for (int i = n; it != list.end(); --i) {
+        EXPECT_EQ(i, list.size());
+        EXPECT_FALSE(list.empty());
+        it = list.erase(it);
+        ++iterations;
+        ASSERT_LE(iterations, n);
+    }
+
+    for (int i = n; i > 0; --i) {
+    }
+    EXPECT_EQ(0, list.size());
+    EXPECT_TRUE(list.empty());
+    EXPECT_EQ(list.end(), list.erase(list.end()));
+}
+
+TEST(TasksListTest, differentPrioritiesIteratorIncrement)
+{
+    TasksList list;
+    list.insert([]() {}, TaskType::Custom, 4, TaskPriority::Background);
+    list.insert([]() {}, TaskType::Custom, 2, TaskPriority::Regular);
+    list.insert([]() {}, TaskType::Custom, 0, TaskPriority::Emergency);
+    list.insert([]() {}, TaskType::Custom, 3, TaskPriority::Regular);
+    list.insert([]() {}, TaskType::Custom, 1, TaskPriority::Emergency);
+
+    auto it = list.begin();
+    for (int i = 0; i < 5; ++i) {
+        ASSERT_NE(list.end(), it);
+        EXPECT_TRUE(it->isValid());
+        EXPECT_NE(&TaskInfo::empty(), &*it);
+        EXPECT_EQ(it->tag, i);
+        ++it;
+    }
+    EXPECT_EQ(list.end(), it);
+    EXPECT_FALSE(it->isValid());
+    EXPECT_EQ(&TaskInfo::empty(), &*it);
+    ++it;
+    EXPECT_EQ(list.end(), it);
+    EXPECT_FALSE(it->isValid());
+    EXPECT_EQ(&TaskInfo::empty(), &*it);
+}
+
+TEST(TasksListTest, iteratorIncrementOverGaps)
+{
+    TasksList list;
+    list.insert([]() {}, TaskType::Custom, 2, TaskPriority::Background);
+    list.insert([]() {}, TaskType::Custom, 4, TaskPriority::Regular);
+    list.insert([]() {}, TaskType::Custom, 0, TaskPriority::Emergency);
+    list.insert([]() {}, TaskType::Custom, 1, TaskPriority::Emergency);
+    list.insert([]() {}, TaskType::Custom, 3, TaskPriority::Background);
+    list.insert([]() {}, TaskType::Custom, 4, TaskPriority::Regular);
+
+    auto iterations = 0;
+    for (auto it = list.begin(); it != list.end();) {
+        if (it->priority == TaskPriority::Regular)
+            it = list.erase(it);
+        else
+            ++it;
+        ++iterations;
+        ASSERT_LE(iterations, 6);
+    }
+
+    auto it = list.begin();
+    for (int i = 0; i < list.size(); ++i) {
+        ASSERT_NE(list.end(), it);
+        EXPECT_TRUE(it->isValid());
+        EXPECT_NE(&TaskInfo::empty(), &*it);
+        EXPECT_EQ(it->tag, i);
+        EXPECT_NE(it->priority, TaskPriority::Regular);
+        ++it;
+    }
+    EXPECT_EQ(list.end(), it);
+    EXPECT_FALSE(it->isValid());
+    EXPECT_EQ(&TaskInfo::empty(), &*it);
+    ++it;
+    EXPECT_EQ(list.end(), it);
+    EXPECT_FALSE(it->isValid());
+    EXPECT_EQ(&TaskInfo::empty(), &*it);
 }
