@@ -278,6 +278,8 @@ void TasksDispatcher::insertTaskInfo(std::function<void()> &&wrappedTask, TaskTy
     if (type == TaskType::ThreadBound) {
         auto boundWorker = d_ptr->tagToWorkerBindings.find(tag);
         if (boundWorker != d_ptr->tagToWorkerBindings.cend()) {
+            d_ptr->availableWorkers.reset(boundWorker->second);
+            lock.unlock();
             d_ptr->allWorkers[static_cast<size_t>(boundWorker->second)]->addTask(std::move(taskInfo));
             return;
         }
