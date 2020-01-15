@@ -174,129 +174,96 @@ Limitations:
 ## Task scheduling performance
 Task scheduling engine should be not only rich in its API but also has good performance in scheduling itself. `benchmarks` directory contains 4 synthetic benchmarks that can show at least some hints about how big the overhead of Asynqro is.
 
-Tests were run few times for each solution on i7 with 4 cores+HT. Smallest one was chosen for each case.
+Tests were run few times for each solution on i7 with 4 cores+HT (MacBook Pro 15 mid 2014, i7 2.2GHz). Smallest value was chosen for each case.
 
-Intensive and ThreadBound mean what type of scheduling was used in this suite. In ThreadBound tasks were assigned to amount of cores not bigger than number of logic cores. All asynqro benchmarks in this section use `runAndForget` function because we don't really need resulting Future. For Future usage overhead please see [Futures usage overhead](#futures-usage-overhead) section below.
+Intensive and ThreadBound mean what type of scheduling was used in this suite. In ThreadBound tasks were assigned to amount of cores not bigger than number of logic cores.
+
+If asynqro benchmark is marked with `+F` then it is using `run` function (that returns Future). If it isn't mark so - it uses `runAndForget`. `+F` mark can indirectly show how much overhead Future usage adds. Keep in mind that this overhead is not only about pure Future versus nothing, but also about `run()` logic overhead related to Future filling.
 
 These benchmarks are synthetical and it is not an easy thing to properly benchmark such thing as task scheduling especially due to non-exclusive owning of CPU, non-deterministic nature of spinlocks and other stuff, but at least it can be used to say with some approximation how big overhead is gonna be under different amount of load.
 
-Benchmarks listed above were collected with 0.1.0 version (QVariant-based one), but numbers are pretty the same for current generic version (probably a bit better for futures usage if some small failure types are used).
+Benchmarks listed below were collected with 0.7.0 version.
+
+The most important or `real life` benchmark from whole set is timed-repost with 0.1ms payload - a lot of jobs with some relatively small payload.
 
 ### empty-avalanche
 Big for loop that sends a lot of tasks without any payload (except filling current time of execution) to thread pool. It produces only one result - how many time it took to go through whole list.
 
-System/Jobs         | 10000 | 100000 | 1000000 | 10000000
-------------------- | ----- | ------ | ------- | ----------
-asynqro (idle=1000) | 12.6493 | 105.028 | 1002.89 | 10114.7
-boostasio           | 33.7501 | 318.911 | 2955.63 | 30074.4
-qtconcurrent        | 131.674 | 1339.33 | 13335.3 | 133160
-threadpoolcpp       | 1.2125 | 4.50206 | 47.2289 | 472.346
+System/Jobs                          | 10000   | 100000  | 1000000 | 10000000
+------------------------------------ | ------- | ------- | ------- | ----------
+asynqro (idle=1000, Intensive)       | 4.44095 | 45.4319 | 455.2   | 4666.12
+asynqro (idle=1000, Intensive, +F)   | 9.05857 | 94.1342 | 926.153 | 9508.67
+asynqro (idle=1000, ThreadBound)     | 2.98527 | 27.4865 | 270.969 | 2714.79
+asynqro (idle=1000, ThreadBound, +F) | 8.98741 | 92.0745 | 908.951 | 9383.99
+boostasio                            | 33.7501 | 318.911 | 2955.63 | 30074.4
+qtconcurrent                         | 131.674 | 1339.33 | 13335.3 | 133160
+threadpoolcpp                        | 1.2125  | 4.50206 | 47.2289 | 472.346
 
 ### timed-avalanche
 The same as empty-avalanche, but in this case tasks are with some payload that tracks time. Each task should be `~0.1ms` of payload. Result in this benchmark is difference between total time and summary of payload time divided by number of cores.
 
-System/Jobs         | 10000 | 100000 | 1000000
-------------------- | ----- | ------ | --------
-asynqro (idle=1000) | 5.97616 | 74.2673 | 1732.07
-boostasio           | 0.920996 | 9.22965 | 105.14
-qtconcurrent        | 5.66463 | 102.161 | 2437.86
-threadpoolcpp       | 2.7514 | 7.54758 | 18.915
+System/Jobs                          | 10000    | 100000  | 1000000
+------------------------------------ | -------- | ------- | --------
+asynqro (idle=1000, Intensive)       | 6.30689  | 54.6901 | 1701.55
+asynqro (idle=1000, Intensive, +F)   | 5.72308  | 229.756 | 8162.24
+asynqro (idle=1000, ThreadBound)     | 0.849481 | 7.88768 | 44.8928
+asynqro (idle=1000, ThreadBound, +F) | 3.1938   | 23.9305 | 159.716
+boostasio                            | 0.920996 | 9.22965 | 105.14
+qtconcurrent                         | 5.66463  | 102.161 | 2437.86
+threadpoolcpp                        | 2.7514   | 7.54758 | 18.915
 
 ### empty-repost
 This benchmark was originally taken from thread-pool-cpp and adapted to qtconcurrent and asynqro usage. It starts C tasks, each of them counts how many times it was sent and if not enough yet (1kk) - sends itself again. Otherwise it reports time spent.
 It produces C different results. For each run we take highest one as a result (which actually means how much time it took to run all of them).
 
-System/Concurrency               | 1 | 2 | 4 | 6 | 8 | 10 | 12 | 14 | 16 | 32
--------------------------------- | - | - | - | - | - | -- | -- | -- | -- | ---
-asynqro (idle=1, Intensive) | 5353.89 | 5763.91 | 9888.5 | 12130.2 | 16577.1 | 24114.1 | 28217.3 | 32611.3 | 38594.7 | 76699.8
-asynqro (idle=100, Intensive) | 1370.49 | 2460.94 | 5010.37 | 12003.2 | 18423.1 | 23533.1 | 28593.2 | 34074.2 | 38433 | 78832.8
-asynqro (idle=100000, Intensive) | 1193.05 | 2096.02 | 5143.41 | 12687.8 | 18437.9 | 23464.5 | 28962.2 | 34065.5 | 36348.8 | 83769.1
-asynqro (idle=1, ThreadBound) | 336.57 | 758.194 | 2341.35 | 4735.5 | 6820.04 | 7415.41 | 8516.27 | 9944.06 | 9728.54 | 23180.2
-asynqro (idle=100, ThreadBound) | 346.104 | 744.536 | 2234.7 | 4839.15 | 8156.63 | 7937.88 | 8004.71 | 10105.1 | 11659.9 | 21744.1
-asynqro (idle=100000, ThreadBound) | 336.549 | 757.518 | 2302.28 | 4799.63 | 7830.33 | 7776.51 | 7814.05 | 8958.35 | 11464.2 | 22830.4
-boostasio | 1493.45 | 1890.09 | 1874.66 | 1809.04 | 2166.56 | 2777.52 | 3393.07 | 3998.14 | 4754.33 | 9756.77
-qtconcurrent | 8233.54 | 26872.4 | 48353.2 | 54523.5 | 59111.9 | 74712.8 | 90037.1 | 105077 | 118219 | 237817
-threadpoolcpp | 32.8009 | 33.2034 | 34.945 | 46.963 | 56.2666 | 81.753 | 86.2359 | 99.6014 | 110.815 | 221.312
+System/Concurrency                   | 1       | 2       | 4       | 6       | 8       | 16      | 32
+------------------------------------ | ------- | ------- | ------- | ------- | ------- | ------- | -------
+asynqro (idle=1, Intensive)          | 3902.78 | 4310    | 8734.67 | 7076.88 | 10073.9 | 22368.9 | 56975
+asynqro (idle=1000, Intensive)       | 600.418 | 778.71  | 2284.93 | 8127.4  | 12763.2 | 26450.1 | 47548.6
+asynqro (idle=1000, Intensive, +F)   | 1379.67 | 1623.07 | 2103.98 | 8135.33 | 12011.9 | 25870.5 | 58762.1
+asynqro (idle=100000, Intensive)     | 546.062 | 758.235 | 2262.83 | 7868.74 | 12336.4 | 26092.8 | 58722.1
+asynqro (idle=1, ThreadBound)        | 200.017 | 402.391 | 1225.84 | 2107.63 | 3095.3  | 6473.62 | 12505.2
+asynqro (idle=1000, ThreadBound)     | 201.293 | 390.617 | 1132.82 | 2293.56 | 2616.4  | 6108.04 | 12549.6
+asynqro (idle=1000, ThreadBound, +F) | 483.751 | 650.649 | 978.401 | 1436.61 | 2235.9  | 4357.5  | 8627.51
+asynqro (idle=100000, ThreadBound)   | 202.246 | 409.661 | 1302.81 | 2239.01 | 2623.15 | 6250.3  | 11650.1
+boostasio                            | 1493.45 | 1890.09 | 1874.66 | 1809.04 | 2166.56 | 4754.33 | 9756.77
+qtconcurrent                         | 8233.54 | 26872.4 | 48353.2 | 54523.5 | 59111.9 | 118219  | 237817
+threadpoolcpp                        | 32.8009 | 33.2034 | 34.945  | 46.963  | 56.2666 | 110.815 | 221.312
 
 ### timed-repost
 Almost the same as empty-repost, but tasks are filled with payload (the same way as timed-avalanche). Number of task runs for each task is reduced to 100k. Result of benchmark is again difference between total time and summary of payload time divided by number of cores.
 
+ThreadBound asynqro and threadpoolcpp behaves poorly on this benchmark on 10, 12, 14 jobs (i.e. more than cores and not the multiplier) due to nature of these schedulers. Intensive asynqro, boostasio and qtconcurrent worked with similar behavior as 8 and 16 results. These odd results are not included in the table for brevity, but it is something reader should be aware of.
+
 #### payload of `~0.1ms`
-System/Concurrency               | 1 | 2 | 4 | 6 | 8 | 10 | 12 | 14 | 16 | 32
--------------------------------- | - | - | - | - | - | -- | -- | -- | -- | ---
-asynqro (idle=1, Intensive) | 537.301 | 557.748 | 959.085 | 745.207 | 155.604 | 249.539 | 293.496 | 342.494 | 307.886 | 592.885
-asynqro (idle=100, Intensive) | 531.53 | 558.306 | 679.251 | 525.038 | 159.378 | 253.372 | 289.485 | 343.119 | 301.704 | 609.566
-asynqro (idle=100000, Intensive) | 133.554 | 154.672 | 184.165 | 202.536 | 156.459 | 244.286 | 297.066 | 340.463 | 296.144 | 591.354
-asynqro (idle=1, ThreadBound) | 39.3806 | 43.4934 | 52.3768 | 67.5977 | 101.586 | 7630.54 | 5110.64 | 2648.81 | 155.436 | 333.36
-asynqro (idle=100, ThreadBound) | 38.3216 | 44.1283 | 53.2152 | 64.5184 | 98.2639 | 7625.08 | 5130.63 | 2657.44 | 166.556 | 320.163
-asynqro (idle=100000, ThreadBound) | 38.4546 | 46.1561 | 49.886 | 64.4978 | 87.2628 | 7624.41 | 5131.11 | 2655.14 | 176.926 | 325.915
-boostasio | 178.826 | 195.186 | 216.133 | 225.054 | 40.7238 | 75.1923 | 70.2192 | 73.9517 | 89.3711 | 187.989
-qtconcurrent | 327.731 | 345.655 | 392.61 | 526.27 | 271.911 | 379.417 | 408.333 | 521.243 | 482.723 | 1131.03
-threadpoolcpp | 10.3491 | 11.3457 | 11.9767 | 13.9743 | 23.2465 | 4996.5 | 4394.37 | 2216.7 | 35.1778 | 59.5406
+System/Concurrency                   | 1       | 2       | 4       | 6       | 8       | 16      | 32
+------------------------------------ | ------- | ------- | ------- | ------- | ------- | ------- | -------
+asynqro (idle=1, Intensive)          | 393.207 | 412.942 | 913.603 | 655.622 | 121.654 | 206.67  | 385.578
+asynqro (idle=1000, Intensive)       | 237.078 | 231.968 | 189.993 | 177.917 | 109.911 | 204.463 | 407.792
+asynqro (idle=1000, Intensive, +F)   | 299.721 | 282.969 | 252.367 | 255.991 | 182.743 | 359.916 | 687.301
+asynqro (idle=100000, Intensive)     | 77.2099 | 82.6826 | 83.3019 | 99.53   | 117.448 | 220.647 | 408.673
+asynqro (idle=1, ThreadBound)        | 27.8577 | 38.1681 | 41.3093 | 45.9538 | 53.8854 | 134.18  | 221.157
+asynqro (idle=1000, ThreadBound)     | 27.4433 | 40.0168 | 37.6035 | 46.5768 | 77.7791 | 137.169 | 239.959
+asynqro (idle=1000, ThreadBound, +F) | 60.2763 | 71.8109 | 77.6684 | 102.253 | 122.571 | 250.267 | 489.204
+asynqro (idle=100000, ThreadBound)   | 27.829  | 41.3547 | 37.5749 | 45.292  | 66.3068 | 117.178 | 239.459
+boostasio                            | 178.826 | 195.186 | 216.133 | 225.054 | 40.7238 | 89.3711 | 187.989
+qtconcurrent                         | 327.731 | 345.655 | 392.61  | 526.27  | 271.911 | 482.723 | 1131.03
+threadpoolcpp                        | 10.3491 | 11.3457 | 11.9767 | 13.9743 | 23.2465 | 35.1778 | 59.5406
 
 #### payload of `~1ms`
-System/Concurrency               | 1 | 2 | 4 | 6 | 8 | 10 | 12 | 14 | 16 | 32
--------------------------------- | - | - | - | - | - | -- | -- | -- | -- | ---
-asynqro (idle=1, Intensive) | 568.14 | 1208.6 | 987.005 | 758.494 | 174.452 | 262.535 | 308.387 | 363.442 | 325.008 | 649.104
-asynqro (idle=100, Intensive) | 520.039 | 612.489 | 719.955 | 577.964 | 190.635 | 267.656 | 307.134 | 346.274 | 318.082 | 641.526
-asynqro (idle=100000, Intensive) | 179.514 | 183.64 | 213.76 | 239.221 | 177.692 | 255.913 | 292.44 | 347.046 | 310.695 | 634.352
-asynqro (idle=1, ThreadBound) | 43.1422 | 47.8293 | 56.1412 | 70.7591 | 117.237 | 75167.2 | 50152.3 | 25211.7 | 192.027 | 398.606
-asynqro (idle=100, ThreadBound) | 43.3436 | 47.8513 | 54.5134 | 69.915 | 121.487 | 75132.2 | 50175 | 25160.5 | 224.238 | 407.352
-asynqro (idle=100000, ThreadBound) | 42.7681 | 47.9518 | 56.9241 | 71.9153 | 109.301 | 75137.1 | 50145.2 | 25199.9 | 228.498 | 392.165
-boostasio | 151.232 | 165.312 | 213.826 | 234.668 | 66.3717 | 56.8949 | 65.7925 | 73.4958 | 75.0968 | 137.803
-qtconcurrent | 275.124 | 295.076 | 382.866 | 464.971 | 249.251 | 347.116 | 525.848 | 593.964 | 476.755 | 926.302
-threadpoolcpp | 17.4312 | 18.4445 | 20.1527 | 19.9876 | 47.1506 | 49977.7 | 43778.4 | 23450 | 57.6971 | 88.9992
-
-## Futures usage overhead
-We can also measure overhead of using futures in task scheduling by running the same benchmarks for asynqro with `run` and `runAndForget` and compare them. Idle amount is 1000 in all tests.
-
-### empty-avalanche
-Flavor/Jobs             | 100000  | 1000000
------------------------ | ------- | --------
-Intensive, no futures | 106.635 | 1056.49
-Intensive, with futures | 195.451 | 1943.28
-ThreadBound, no futures | 94.9389 | 931.258
-ThreadBound, with futures | 181.489 | 1869.79
-
-### timed-avalanche with `0.1ms`
-Flavor/Jobs             | 10000   | 100000
------------------------ | ------- | --------
-Intensive, no futures | 11.8109 | 64.3695
-Intensive, with futures | 14.7544 | 298.561
-ThreadBound, no futures | 2.95714 | 20.1497
-ThreadBound, with futures | 5.2423  | 37.5535
-
-### empty-repost with `100k` tasks
-Flavor/Concurrency      | 1 | 4 | 8 | 16
------------------------ | - | - | - | ---
-Intensive, no futures | 122.806 | 526.092 | 1671.87 | 3414.7
-Intensive, with futures | 302.854 | 545.561 | 1705.33 | 3650.32
-ThreadBound, no futures | 32.0795 | 196.733 | 780.659 | 974.038
-ThreadBound, with futures | 64.0556 | 171.66 | 520.588 | 768.036
-
-### empty-repost with `1kk` tasks
-Flavor/Concurrency      | 1 | 4 | 8 | 16
------------------------ | - | - | - | ---
-Intensive, no futures | 1195.36 | 5246.65 | 17682.6 | 33589
-Intensive, with futures | 2816.33 | 5351.31 | 17028.6 | 36146.4
-ThreadBound, no futures | 317.3 | 1968.22 | 6861.81 | 9625.58
-ThreadBound, with futures | 664.155 | 1779.41 | 5361.86 | 8048.08
-
-### timed-repost with `10k` tasks of `0.1ms` each
-Flavor/Concurrency      | 1 | 4 | 8 | 16
------------------------ | - | - | - | ---
-Intensive, no futures | 24.5251 | 24.6166 | 20.0933 | 37.4036
-Intensive, with futures | 33.1252 | 39.9258 | 29.6381 | 51.7628
-ThreadBound, no futures | 4.03977 | 5.34057 | 16.3515 | 23.1206
-ThreadBound, with futures | 7.89128 | 10.787 | 18.1974 | 32.0577
-
-### timed-repost with `100k` tasks of `0.1ms` each
-Flavor/Concurrency      | 1 | 4 | 8 | 16
------------------------ | - | - | - | ---
-Intensive, no futures | 247.519 | 243.835 | 167.819 | 301.238
-Intensive, with futures | 345.05 | 366.752 | 238.314 | 453.048
-ThreadBound, no futures | 39.0278 | 52.2347 | 103.544 | 179.148
-ThreadBound, with futures | 76.5194 | 93.4037 | 164.959 | 305.991
+System/Concurrency                   | 1       | 2       | 4       | 6       | 8       | 16      | 32
+------------------------------------ | ------- | ------- | ------- | ------- | ------- | ------- | -------
+asynqro (idle=1, Intensive)          | 345.436 | 480.884 | 1032.17 | 700.264 | 193.722 | 231.541 | 442.502
+asynqro (idle=1000, Intensive)       | 333.487 | 366.489 | 500.979 | 460.211 | 187.748 | 225.557 | 454.981
+asynqro (idle=1000, Intensive, +F)   | 371.643 | 404.025 | 582.341 | 508.068 | 275.083 | 398.329 | 760.355
+asynqro (idle=100000, Intensive)     | 153.605 | 135.368 | 119.951 | 186.767 | 181.475 | 239.224 | 460.824
+asynqro (idle=1, ThreadBound)        | 33.8516 | 46.8522 | 45.2664 | 60.2888 | 132.012 | 228.833 | 337.351
+asynqro (idle=1000, ThreadBound)     | 33.3664 | 45.2354 | 45.1481 | 65.5007 | 159.857 | 249.508 | 368.766
+asynqro (idle=1000, ThreadBound, +F) | 68.4836 | 77.18   | 90.0423 | 117.263 | 222.851 | 346.748 | 672.402
+asynqro (idle=100000, ThreadBound)   | 33.675  | 46.0016 | 45.582  | 59.6052 | 128.506 | 195.254 | 330.591
+boostasio                            | 151.232 | 165.312 | 213.826 | 234.668 | 66.3717 | 75.0968 | 137.803
+qtconcurrent                         | 275.124 | 295.076 | 382.866 | 464.971 | 249.251 | 476.755 | 926.302
+threadpoolcpp                        | 17.4312 | 18.4445 | 20.1527 | 19.9876 | 47.1506 | 57.6971 | 88.9992
 
 ## Examples
 
