@@ -18,9 +18,12 @@ set_target_properties(asynqro_impl_tests PROPERTIES
     CXX_EXTENSIONS OFF
     POSITION_INDEPENDENT_CODE ON
 )
+
 target_link_libraries(asynqro_impl_tests asynqro::asynqro gtest)
 if (ASYNQRO_QT_SUPPORT)
     target_sources(asynqro_impl_tests PRIVATE containers_traverse_map_no_sockets_test.cpp)
 endif()
 
-gtest_discover_tests(asynqro_impl_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)
+if (NOT DEFINED ENV{APPVEYOR})
+    gtest_discover_tests(asynqro_impl_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)
+endif()

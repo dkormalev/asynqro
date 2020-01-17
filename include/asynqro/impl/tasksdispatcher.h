@@ -138,73 +138,36 @@ struct TaskRunner
                                detail::FailureTypeIfFuture_T<RawResult, typename RunnerInfo::PlainFailure>>;
         Promise<std::conditional_t<std::is_same_v<RawResult, void>, bool, NonVoidResult>, FinalFailure> promise{};
 
-        //TODO: MSVC2019+: move constexpr if back into lambda when MSFT will fix their issue with constexpr in lambdas
-        // NOLINTNEXTLINE(bugprone-branch-clone)
-        if constexpr (detail::IsSpecialization_V<RawResult, Future> && RunnerInfo::deferredFailureShouldBeConverted) {
-            std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept {
-                if (promise.isFilled())
-                    return;
-                detail::invalidateLastFailure();
-                try {
-                    task()
-                        .onSuccess([promise](const auto &result) noexcept { promise.success(result); })
-                        .onFailure([promise](const auto &failure) noexcept {
+        std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept {
+            if (promise.isFilled())
+                return;
+            detail::invalidateLastFailure();
+            try {
+                // NOLINTNEXTLINE(bugprone-branch-clone)
+                if constexpr (detail::IsSpecialization_V<RawResult, Future>) {
+                    auto innerFuture = task();
+                    innerFuture.onSuccess([promise](const auto &result) noexcept { promise.success(result); });
+                    if constexpr (RunnerInfo::deferredFailureShouldBeConverted) {
+                        innerFuture.onFailure([promise](const auto &failure) noexcept {
                             promise.failure(RunnerInfo::toPlainFailure(failure));
                         });
-                } catch (const std::exception &e) {
-                    promise.failure(detail::exceptionFailure<FinalFailure>(e));
-                } catch (...) {
-                    promise.failure(detail::exceptionFailure<FinalFailure>());
-                }
-            };
-            TasksDispatcher::instance()->insertTaskInfo(std::move(f), type, tag, priority);
-        } else if constexpr (detail::IsSpecialization_V<RawResult, Future>) { // NOLINT(readability-misleading-indentation)
-            // !TaskRunnerDescriptor::deferredFailureShouldBeConverted
-            std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept {
-                if (promise.isFilled())
-                    return;
-                detail::invalidateLastFailure();
-                try {
-                    task()
-                        .onSuccess([promise](const auto &result) noexcept { promise.success(result); })
-                        .onFailure([promise](const FinalFailure &failure) noexcept { promise.failure(failure); });
-                } catch (const std::exception &e) {
-                    promise.failure(detail::exceptionFailure<FinalFailure>(e));
-                } catch (...) {
-                    promise.failure(detail::exceptionFailure<FinalFailure>());
-                }
-            };
-            TasksDispatcher::instance()->insertTaskInfo(std::move(f), type, tag, priority);
-        } else if constexpr (std::is_same_v<RawResult, void>) { // NOLINT(readability-misleading-indentation)
-            std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept {
-                if (promise.isFilled())
-                    return;
-                detail::invalidateLastFailure();
-                try {
+                    } else { // NOLINT(readability-misleading-indentation)
+                        innerFuture.onFailure(
+                            [promise](const FinalFailure &failure) noexcept { promise.failure(failure); });
+                    }
+                } else if constexpr (std::is_same_v<RawResult, void>) { // NOLINT(readability-misleading-indentation)
                     task();
                     promise.success(true);
-                } catch (const std::exception &e) {
-                    promise.failure(detail::exceptionFailure<FinalFailure>(e));
-                } catch (...) {
-                    promise.failure(detail::exceptionFailure<FinalFailure>());
-                }
-            };
-            TasksDispatcher::instance()->insertTaskInfo(std::move(f), type, tag, priority);
-        } else { // NOLINT(readability-misleading-indentation)
-            std::function<void()> f = [promise, task = std::forward<Task>(task)]() noexcept {
-                if (promise.isFilled())
-                    return;
-                detail::invalidateLastFailure();
-                try {
+                } else { // NOLINT(readability-misleading-indentation)
                     promise.success(task());
-                } catch (const std::exception &e) {
-                    promise.failure(detail::exceptionFailure<FinalFailure>(e));
-                } catch (...) {
-                    promise.failure(detail::exceptionFailure<FinalFailure>());
                 }
-            };
-            TasksDispatcher::instance()->insertTaskInfo(std::move(f), type, tag, priority);
-        }
+            } catch (const std::exception &e) {
+                promise.failure(detail::exceptionFailure<FinalFailure>(e));
+            } catch (...) {
+                promise.failure(detail::exceptionFailure<FinalFailure>());
+            }
+        };
+        TasksDispatcher::instance()->insertTaskInfo(std::move(f), type, tag, priority);
         return CancelableFuture<>::create(promise);
     }
 

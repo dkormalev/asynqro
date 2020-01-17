@@ -2,6 +2,7 @@
 
 #ifdef ASYNQRO_QT_SUPPORT
 #    include <QCoreApplication>
+#    include <QElapsedTimer>
 #    include <QtConcurrent>
 
 class TestQObject : public QObject
@@ -166,7 +167,7 @@ TEST_F(FutureBasicsTest, fromQtFutureInt)
             TestFuture<int> f = TestFuture<int>::fromQtFuture(qFuture);
             ASSERT_FALSE(f.isCompleted());
             start = true;
-            QTime timer;
+            QElapsedTimer timer;
             timer.start();
             while (!f.isCompleted() && timer.elapsed() < 10000)
                 QCoreApplication::processEvents();
@@ -175,7 +176,7 @@ TEST_F(FutureBasicsTest, fromQtFutureInt)
             EXPECT_FALSE(f.isFailed());
             EXPECT_EQ(5, f.result());
         }
-        QTime timer;
+        QElapsedTimer timer;
         timer.start();
         while (instantFuturesUsage() && timer.elapsed() < 10000)
             QCoreApplication::processEvents();
@@ -199,7 +200,7 @@ TEST_F(FutureBasicsTest, fromQtFutureBool)
             TestFuture<bool> f = TestFuture<bool>::fromQtFuture(qFuture);
             ASSERT_FALSE(f.isCompleted());
             start = true;
-            QTime timer;
+            QElapsedTimer timer;
             timer.start();
             while (!f.isCompleted() && timer.elapsed() < 10000)
                 QCoreApplication::processEvents();
@@ -208,7 +209,7 @@ TEST_F(FutureBasicsTest, fromQtFutureBool)
             EXPECT_FALSE(f.isFailed());
             EXPECT_FALSE(f.result());
         }
-        QTime timer;
+        QElapsedTimer timer;
         timer.start();
         while (instantFuturesUsage() && timer.elapsed() < 10000)
             QCoreApplication::processEvents();
@@ -231,7 +232,7 @@ TEST_F(FutureBasicsTest, fromQtFutureVoid)
             TestFuture<bool> f = TestFuture<bool>::fromQtFuture(qFuture);
             ASSERT_FALSE(f.isCompleted());
             start = true;
-            QTime timer;
+            QElapsedTimer timer;
             timer.start();
             while (!f.isCompleted() && timer.elapsed() < 10000)
                 QCoreApplication::processEvents();
@@ -240,7 +241,7 @@ TEST_F(FutureBasicsTest, fromQtFutureVoid)
             EXPECT_FALSE(f.isFailed());
             EXPECT_TRUE(f.result());
         }
-        QTime timer;
+        QElapsedTimer timer;
         timer.start();
         while (instantFuturesUsage() && timer.elapsed() < 10000)
             QCoreApplication::processEvents();
@@ -264,7 +265,7 @@ TEST_F(FutureBasicsTest, fromQtFutureIndirectBool)
             TestFuture<bool> f = TestFuture<bool>::fromQtFuture(qFuture);
             ASSERT_FALSE(f.isCompleted());
             start = true;
-            QTime timer;
+            QElapsedTimer timer;
             timer.start();
             while (!f.isCompleted() && timer.elapsed() < 10000)
                 QCoreApplication::processEvents();
@@ -273,7 +274,7 @@ TEST_F(FutureBasicsTest, fromQtFutureIndirectBool)
             EXPECT_FALSE(f.isFailed());
             EXPECT_TRUE(f.result());
         }
-        QTime timer;
+        QElapsedTimer timer;
         timer.start();
         while (instantFuturesUsage() && timer.elapsed() < 10000)
             QCoreApplication::processEvents();
@@ -297,7 +298,7 @@ TEST_F(FutureBasicsTest, fromQtFutureIntArray)
             TestFuture<std::vector<int>> f = TestFuture<std::vector<int>>::fromQtFuture(qFuture);
             ASSERT_FALSE(f.isCompleted());
             start = true;
-            QTime timer;
+            QElapsedTimer timer;
             timer.start();
             while (!f.isCompleted() && timer.elapsed() < 10000)
                 QCoreApplication::processEvents();
@@ -309,7 +310,7 @@ TEST_F(FutureBasicsTest, fromQtFutureIntArray)
             for (size_t i = 0; i < result.size(); ++i)
                 EXPECT_EQ(i, result[i]);
         }
-        QTime timer;
+        QElapsedTimer timer;
         timer.start();
         while (instantFuturesUsage() && timer.elapsed() < 10000)
             QCoreApplication::processEvents();
@@ -344,7 +345,7 @@ TEST_F(FutureBasicsTest, fromQtFutureIntFromOtherThread)
             }
             ASSERT_FALSE(f.isCompleted());
             start = true;
-            QTime timer;
+            QElapsedTimer timer;
             timer.start();
             while (!f.isCompleted() && timer.elapsed() < 10000)
                 QCoreApplication::processEvents();
@@ -354,7 +355,7 @@ TEST_F(FutureBasicsTest, fromQtFutureIntFromOtherThread)
             EXPECT_FALSE(f.isFailed());
             EXPECT_EQ(5, f.result());
         }
-        QTime timer;
+        QElapsedTimer timer;
         timer.start();
         while (instantFuturesUsage() && timer.elapsed() < 10000)
             QCoreApplication::processEvents();
@@ -389,7 +390,7 @@ TEST_F(FutureBasicsTest, fromQtFutureBoolFromOtherThread)
             }
             ASSERT_FALSE(f.isCompleted());
             start = true;
-            QTime timer;
+            QElapsedTimer timer;
             timer.start();
             while (!f.isCompleted() && timer.elapsed() < 10000)
                 QCoreApplication::processEvents();
@@ -399,7 +400,7 @@ TEST_F(FutureBasicsTest, fromQtFutureBoolFromOtherThread)
             EXPECT_FALSE(f.isFailed());
             EXPECT_FALSE(f.result());
         }
-        QTime timer;
+        QElapsedTimer timer;
         timer.start();
         while (instantFuturesUsage() && timer.elapsed() < 10000)
             QCoreApplication::processEvents();
@@ -433,7 +434,7 @@ TEST_F(FutureBasicsTest, fromQtFutureVoidFromOtherThread)
             }
             ASSERT_FALSE(f.isCompleted());
             start = true;
-            QTime timer;
+            QElapsedTimer timer;
             timer.start();
             while (!f.isCompleted() && timer.elapsed() < 10000)
                 QCoreApplication::processEvents();
@@ -443,7 +444,7 @@ TEST_F(FutureBasicsTest, fromQtFutureVoidFromOtherThread)
             EXPECT_FALSE(f.isFailed());
             EXPECT_TRUE(f.result());
         }
-        QTime timer;
+        QElapsedTimer timer;
         timer.start();
         while (instantFuturesUsage() && timer.elapsed() < 10000)
             QCoreApplication::processEvents();
@@ -478,7 +479,7 @@ TEST_F(FutureBasicsTest, fromQtFutureIndirectBoolFromOtherThread)
             }
             ASSERT_FALSE(f.isCompleted());
             start = true;
-            QTime timer;
+            QElapsedTimer timer;
             timer.start();
             while (!f.isCompleted() && timer.elapsed() < 10000)
                 QCoreApplication::processEvents();
@@ -488,7 +489,7 @@ TEST_F(FutureBasicsTest, fromQtFutureIndirectBoolFromOtherThread)
             EXPECT_FALSE(f.isFailed());
             EXPECT_TRUE(f.result());
         }
-        QTime timer;
+        QElapsedTimer timer;
         timer.start();
         while (instantFuturesUsage() && timer.elapsed() < 10000)
             QCoreApplication::processEvents();
@@ -523,7 +524,7 @@ TEST_F(FutureBasicsTest, fromQtFutureIntArrayFromOtherThread)
             }
             ASSERT_FALSE(f.isCompleted());
             start = true;
-            QTime timer;
+            QElapsedTimer timer;
             timer.start();
             while (!f.isCompleted() && timer.elapsed() < 10000)
                 QCoreApplication::processEvents();
@@ -536,7 +537,7 @@ TEST_F(FutureBasicsTest, fromQtFutureIntArrayFromOtherThread)
             for (size_t i = 0; i < result.size(); ++i)
                 EXPECT_EQ(i, result[i]);
         }
-        QTime timer;
+        QElapsedTimer timer;
         timer.start();
         while (instantFuturesUsage() && timer.elapsed() < 10000)
             QCoreApplication::processEvents();

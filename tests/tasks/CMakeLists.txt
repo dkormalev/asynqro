@@ -19,7 +19,10 @@ set_target_properties(asynqro_tasks_tests PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )
 target_link_libraries(asynqro_tasks_tests asynqro::asynqro gtest)
-gtest_discover_tests(asynqro_tasks_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)
+
+if (NOT DEFINED ENV{APPVEYOR})
+    gtest_discover_tests(asynqro_tasks_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)
+endif()
 
 add_executable(asynqro_tasks_preheated_tests main_preheated.cpp ${TASKS_TESTS_SOURCES})
 set_target_properties(asynqro_tasks_preheated_tests PROPERTIES
@@ -29,7 +32,10 @@ set_target_properties(asynqro_tasks_preheated_tests PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )
 target_link_libraries(asynqro_tasks_preheated_tests asynqro::asynqro gtest)
-gtest_discover_tests(asynqro_tasks_preheated_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)
+
+if (NOT DEFINED ENV{APPVEYOR})
+    gtest_discover_tests(asynqro_tasks_preheated_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)
+endif()
 
 add_executable(asynqro_tasks_preheated_intensive_tests main_preheated_intensive.cpp ${TASKS_TESTS_SOURCES})
 set_target_properties(asynqro_tasks_preheated_intensive_tests PROPERTIES
@@ -41,10 +47,12 @@ set_target_properties(asynqro_tasks_preheated_intensive_tests PROPERTIES
 target_link_libraries(asynqro_tasks_preheated_intensive_tests asynqro::asynqro gtest)
 
 
+if (NOT DEFINED ENV{APPVEYOR})
+    gtest_discover_tests(asynqro_tasks_preheated_intensive_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)
+endif()
+
 if (ASYNQRO_QT_SUPPORT)
     set_target_properties(asynqro_tasks_tests PROPERTIES AUTOMOC ON)
     set_target_properties(asynqro_tasks_preheated_tests PROPERTIES AUTOMOC ON)
     set_target_properties(asynqro_tasks_preheated_intensive_tests PROPERTIES AUTOMOC ON)
 endif()
-
-gtest_discover_tests(asynqro_tasks_preheated_intensive_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)

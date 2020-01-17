@@ -45,4 +45,6 @@ endif()
 
 target_link_libraries(asynqro_future_tests asynqro::asynqro gtest)
 
-gtest_discover_tests(asynqro_future_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)
+if (NOT DEFINED ENV{APPVEYOR})
+    gtest_discover_tests(asynqro_future_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)
+endif()

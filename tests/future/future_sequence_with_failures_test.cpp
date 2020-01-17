@@ -12,6 +12,8 @@
 
 using namespace std::chrono_literals;
 
+#pragma warning(disable : 4267)
+
 template <typename, typename>
 struct InnerTypeChanger;
 template <template <typename...> typename C, typename NewType, typename... Args>
