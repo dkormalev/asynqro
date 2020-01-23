@@ -28,6 +28,12 @@
 #include <atomic>
 #include <thread>
 
+#if defined(_MSC_VER)
+#    include <intrin.h>
+#elif !defined(__arm__)
+#    include <immintrin.h>
+#endif
+
 namespace asynqro::detail {
 class SpinLock
 {
@@ -43,14 +49,20 @@ public:
     {
         using namespace std::chrono_literals;
         while (!tryLock())
-            std::this_thread::sleep_for(1ms);
+            std::this_thread::sleep_for(500us);
     }
 
     inline bool tryLock() noexcept
     {
         bool result = !m_lock.test_and_set(std::memory_order_acq_rel);
-        for (size_t i = 0; !result && i < 1024; ++i)
+        for (size_t i = 0; !result && i < 1024; ++i) {
+#if defined(__arm__)
+            __asm__ __volatile__("yield");
+#else
+            _mm_pause();
+#endif
             result = !m_lock.test_and_set(std::memory_order_acq_rel);
+        }
 
         return result;
     }
@@ -80,7 +92,7 @@ public:
                     m_lock = nullptr;
                     return;
                 }
-                std::this_thread::sleep_for(1ms);
+                std::this_thread::sleep_for(500us);
             }
         }
     }
