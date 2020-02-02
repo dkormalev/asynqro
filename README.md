@@ -27,7 +27,6 @@ There are already a lot of implementations of Future mechanism in C++:
 - `boost::future` - almost the same as `std::future`.
 - `QFuture` - Mostly unusable outside of QtConcurrent without Qt private headers because there is no way to fill it from user code.
 - `Folly` - Folly futures are also inspired by Scala ones (but different ones, from Twitter framework) and have good API but are a part of huge framework which is too hard to use partially.
-- `ProofSeed` - this one is also a part of rather big framework and mostly unusable outside of it due to reasons like non-portable Failure type. Now is ported to asynqro usage.
 - Many others not mentioned here
 
 So why not to create another one?
@@ -148,10 +147,11 @@ In case when there is a container with data we need to pass to our function one 
 
 ## Tasks scheduling
 The same as with futures, there are lots of implementations of task scheduling:
-- `Boost.Asio` - Asio is much bigger than just scheduling, but it also provides thread pool with some API for running jobs in it
+- `Boost.Asio` - Asio is much bigger than just scheduling, but it also provides thread pool with some API for running jobs in it.
 - `QtConcurrent` - part of Qt that uses QFuture and provides `run()` for scheduling task somewhere in QThreadPool.
 - `Thread-Pool-Cpp` - most simplest possible implementation of thread pool that is extremely fast. It is as basic as it can be though - round-robin on threads with ability to pass queued jobs between them.
 - `Folly` - Folly task scheduling using two different executors and MPMC queue is, again as Futures, an awesome solution, but it is a huge framework and can't be easily added only for task scheduling.
+- `Intel TBB` - pretty good in performance (lags on some corner cases, see 8+ concurrency in timed reposts, but it is probably some bug that would be fixed eventually), not that good in API and requires a lot of boilerplate if low-level task scheduling needed. TBB is more oriented towards parallel computations (for which it provides solid set of helpers) than general parallel tasks.
 - many others not listed here.
 
 Asynqro's task scheduling provides next functionality:
@@ -180,11 +180,19 @@ Intensive and ThreadBound mean what type of scheduling was used in this suite. I
 
 If asynqro benchmark is marked with `+F` then it is using `run` function (that returns Future). If it isn't mark so - it uses `runAndForget`. `+F` mark can indirectly show how much overhead Future usage adds. Keep in mind that this overhead is not only about pure Future versus nothing, but also about `run()` logic overhead related to Future filling.
 
+For Intel TBB repost benchmarks there are two different modes.
+- enqueue means that all tasks are added using `enqueue()`, which adds them to shared queue. It is comparable to how Intensive tasks scheduling works in asynqro.
+- spawn means that all child tasks (i.e. ones that were added from other tasks) are added by `spawn()`, which adds them to current thread queue, which resembles a bit ThreadBound behavior (but for TBB they also can be stolen by other threads).
+
+Ideas behind what exactly each benchmarks measures:
+- `timed-repost` - the most **real life** benchmark from the set. It emulates system with a lot of tasks that are being added from multiple threads with some pauses (payload of the task). It allocates these task additions across timeline and shows how system under stress would work.
+- `timed-avalanche` - same tasks as in repost, but ALL tasks are added from one main thread. Tasks don't add new tasks anymore. This benchmark is about working with long tasks queue still keeping these payloads to emulate some useful work done in real systems.
+- `empty-repost` - same as timed-repost, but without any payload. Equals to extra brutality on concurrent access to shared queue. This benchmark is where asynqro lags behind comparing to Boost.Asio and TBB and can have some improvements. But, as mentioned earlier - such case should rarely happen in real projects.
+- `empty-avalanche` - same as timed-avalanche, but without any payload.
+
 These benchmarks are synthetical and it is not an easy thing to properly benchmark such thing as task scheduling especially due to non-exclusive owning of CPU, non-deterministic nature of spinlocks and other stuff, but at least it can be used to say with some approximation how big overhead is gonna be under different amount of load.
 
 Benchmarks listed below were collected with 0.7.0 version.
-
-The most important or `real life` benchmark from whole set is timed-repost with 0.1ms payload - a lot of jobs with some relatively small payload.
 
 ### empty-avalanche
 Big for loop that sends a lot of tasks without any payload (except filling current time of execution) to thread pool. It produces only one result - how many time it took to go through whole list.
@@ -196,6 +204,7 @@ asynqro (idle=1000, Intensive, +F)   | 9.05857 | 94.1342 | 926.153 | 9508.67
 asynqro (idle=1000, ThreadBound)     | 2.98527 | 27.4865 | 270.969 | 2714.79
 asynqro (idle=1000, ThreadBound, +F) | 8.98741 | 92.0745 | 908.951 | 9383.99
 boostasio                            | 33.7501 | 318.911 | 2955.63 | 30074.4
+Intel TBB                            | 3.79893 | 26.0585 | 252.715 | 2545.12
 qtconcurrent                         | 131.674 | 1339.33 | 13335.3 | 133160
 threadpoolcpp                        | 1.2125  | 4.50206 | 47.2289 | 472.346
 
@@ -209,6 +218,7 @@ asynqro (idle=1000, Intensive, +F)   | 5.72308  | 229.756 | 8162.24
 asynqro (idle=1000, ThreadBound)     | 0.849481 | 7.88768 | 44.8928
 asynqro (idle=1000, ThreadBound, +F) | 3.1938   | 23.9305 | 159.716
 boostasio                            | 0.920996 | 9.22965 | 105.14
+Intel TBB                            | 19.8788  | 185.326 | 1841.44
 qtconcurrent                         | 5.66463  | 102.161 | 2437.86
 threadpoolcpp                        | 2.7514   | 7.54758 | 18.915
 
@@ -227,6 +237,8 @@ asynqro (idle=1000, ThreadBound)     | 201.293 | 390.617 | 1132.82 | 2293.56 | 2
 asynqro (idle=1000, ThreadBound, +F) | 483.751 | 650.649 | 978.401 | 1436.61 | 2235.9  | 4357.5  | 8627.51
 asynqro (idle=100000, ThreadBound)   | 202.246 | 409.661 | 1302.81 | 2239.01 | 2623.15 | 6250.3  | 11650.1
 boostasio                            | 1493.45 | 1890.09 | 1874.66 | 1809.04 | 2166.56 | 4754.33 | 9756.77
+Intel TBB (enqueue)                  | 309.177 | 526.463 | 715.759 | 876.114 | 1062.48 | 1811    | 3339.66
+Intel TBB (spawn)                    | 109.763 | 137.671 | 148.276 | 153.028 | 262.128 | 427.955 | 773.134
 qtconcurrent                         | 8233.54 | 26872.4 | 48353.2 | 54523.5 | 59111.9 | 118219  | 237817
 threadpoolcpp                        | 32.8009 | 33.2034 | 34.945  | 46.963  | 56.2666 | 110.815 | 221.312
 
@@ -247,6 +259,8 @@ asynqro (idle=1000, ThreadBound)     | 27.4433 | 40.0168 | 37.6035 | 46.5768 | 7
 asynqro (idle=1000, ThreadBound, +F) | 60.2763 | 71.8109 | 77.6684 | 102.253 | 122.571 | 250.267 | 489.204
 asynqro (idle=100000, ThreadBound)   | 27.829  | 41.3547 | 37.5749 | 45.292  | 66.3068 | 117.178 | 239.459
 boostasio                            | 178.826 | 195.186 | 216.133 | 225.054 | 40.7238 | 89.3711 | 187.989
+Intel TBB (enqueue)                  | 168.437 | 122.945 | 105.613 | 71.8165 | 1494.4  | 2983.28 | 5961.23
+Intel TBB (spawn)                    | 159.379 | 100.803 | 65.9654 | 48.5725 | 10189.7 | 10167.9 | 10176.9
 qtconcurrent                         | 327.731 | 345.655 | 392.61  | 526.27  | 271.911 | 482.723 | 1131.03
 threadpoolcpp                        | 10.3491 | 11.3457 | 11.9767 | 13.9743 | 23.2465 | 35.1778 | 59.5406
 
@@ -262,6 +276,8 @@ asynqro (idle=1000, ThreadBound)     | 33.3664 | 45.2354 | 45.1481 | 65.5007 | 1
 asynqro (idle=1000, ThreadBound, +F) | 68.4836 | 77.18   | 90.0423 | 117.263 | 222.851 | 346.748 | 672.402
 asynqro (idle=100000, ThreadBound)   | 33.675  | 46.0016 | 45.582  | 59.6052 | 128.506 | 195.254 | 330.591
 boostasio                            | 151.232 | 165.312 | 213.826 | 234.668 | 66.3717 | 75.0968 | 137.803
+Intel TBB (enqueue)                  | 193.201 | 136.318 | 128.363 | 111.218 | 14432.8 | 28828.8 | 57611.2
+Intel TBB (spawn)                    | 183.936 | 121.877 | 101.83  | 87.967  | 100227  | 100253  | 100354
 qtconcurrent                         | 275.124 | 295.076 | 382.866 | 464.971 | 249.251 | 476.755 | 926.302
 threadpoolcpp                        | 17.4312 | 18.4445 | 20.1527 | 19.9876 | 47.1506 | 57.6971 | 88.9992
 

@@ -3,6 +3,7 @@ project(asynqro-benchmarks LANGUAGES CXX)
 
 find_package(asynqro REQUIRED)
 find_package(Qt5Concurrent REQUIRED)
+find_package(TBB REQUIRED)
 
 set(Boost_USE_STATIC_LIBS        ON)
 set(Boost_USE_DEBUG_LIBS         OFF)
@@ -23,7 +24,7 @@ set(ASYNQRO_TASK_MODE 1)
 set(ASYNQRO_USE_FUTURES 0 1)
 set(ASYNQRO_IDLE_LOOPS_AMOUNT 1 1000)
 
-set(NON_ASYNQRO_SYSTEMS boostasio threadpoolcpp qtconcurrent)
+set(NON_ASYNQRO_SYSTEMS boostasio threadpoolcpp qtconcurrent tbb tbb_spawn)
 
 add_definitions(-DCORES=8)
 
@@ -38,7 +39,7 @@ foreach(job_count ${REPOST_EMPTY_JOBS_COUNT})
                 "CONCURRENCY=${concurrency}"
                 "JOBS_COUNT=${job_count}"
                 )
-            target_link_libraries(${system}_c${concurrency}_j${job_count}_empty_repost ${Boost_LIBRARIES} Qt5::Concurrent)
+            target_link_libraries(${system}_c${concurrency}_j${job_count}_empty_repost ${Boost_LIBRARIES} Qt5::Concurrent TBB::tbb)
             set(ALL_BENCHMARKS ${ALL_BENCHMARKS} ${system}_c${concurrency}_j${job_count}_empty_repost)
         endforeach()
 
@@ -60,25 +61,6 @@ foreach(job_count ${REPOST_EMPTY_JOBS_COUNT})
             endforeach()
         endforeach()
 
-        foreach(task_mode ${ASYNQRO_TASK_MODE})
-            foreach(use_futures ${ASYNQRO_USE_FUTURES})
-                foreach(idle_loops ${ASYNQRO_IDLE_LOOPS_AMOUNT})
-                    add_executable(asynqro_qt_f${use_futures}_t${task_mode}_ph${preheat}_il${idle_loops}_c${concurrency}_j${job_count}_empty_repost empty-repost/asynqro.cpp)
-                    target_compile_definitions(asynqro_qt_f${use_futures}_t${task_mode}_ph${preheat}_il${idle_loops}_c${concurrency}_j${job_count}_empty_repost PRIVATE
-                        "CONCURRENCY=${concurrency}"
-                        "JOBS_COUNT=${job_count}"
-                        "TASK_MODE=${task_mode}"
-                        "WITH_FUTURES=${use_futures}"
-                        "WITH_PREHEAT=1"
-                        "IDLE_AMOUNT=${idle_loops}"
-                        "ASYNQRO_QT_SUPPORT"
-                        )
-                    target_link_libraries(asynqro_qt_f${use_futures}_t${task_mode}_ph${preheat}_il${idle_loops}_c${concurrency}_j${job_count}_empty_repost asynqro::asynqro Qt5::Core)
-                    set(ALL_BENCHMARKS ${ALL_BENCHMARKS} asynqro_qt_f${use_futures}_t${task_mode}_ph${preheat}_il${idle_loops}_c${concurrency}_j${job_count}_empty_repost)
-                endforeach()
-            endforeach()
-        endforeach()
-
     endforeach()
 endforeach()
 
@@ -93,7 +75,7 @@ foreach(job_count ${REPOST_TIMED_JOBS_COUNT})
                     "JOBS_COUNT=${job_count}"
                     "JOB_LENGTH=${job_length}"
                     )
-                target_link_libraries(${system}_c${concurrency}_j${job_count}_l${job_length}_timed_repost ${Boost_LIBRARIES} Qt5::Concurrent)
+                target_link_libraries(${system}_c${concurrency}_j${job_count}_l${job_length}_timed_repost ${Boost_LIBRARIES} Qt5::Concurrent TBB::tbb)
                 set(ALL_BENCHMARKS ${ALL_BENCHMARKS} ${system}_c${concurrency}_j${job_count}_l${job_length}_timed_repost)
             endforeach()
 
@@ -116,26 +98,6 @@ foreach(job_count ${REPOST_TIMED_JOBS_COUNT})
                 endforeach()
             endforeach()
 
-            foreach(task_mode ${ASYNQRO_TASK_MODE})
-                foreach(use_futures ${ASYNQRO_USE_FUTURES})
-                    foreach(idle_loops ${ASYNQRO_IDLE_LOOPS_AMOUNT})
-                        add_executable(asynqro_qt_f${use_futures}_t${task_mode}_ph${preheat}_il${idle_loops}_c${concurrency}_j${job_count}_l${job_length}_timed_repost timed-repost/asynqro.cpp)
-                        target_compile_definitions(asynqro_qt_f${use_futures}_t${task_mode}_ph${preheat}_il${idle_loops}_c${concurrency}_j${job_count}_l${job_length}_timed_repost PRIVATE
-                            "CONCURRENCY=${concurrency}"
-                            "JOBS_COUNT=${job_count}"
-                            "JOB_LENGTH=${job_length}"
-                            "TASK_MODE=${task_mode}"
-                            "WITH_FUTURES=${use_futures}"
-                            "WITH_PREHEAT=1"
-                            "IDLE_AMOUNT=${idle_loops}"
-                            "ASYNQRO_QT_SUPPORT"
-                            )
-                        target_link_libraries(asynqro_qt_f${use_futures}_t${task_mode}_ph${preheat}_il${idle_loops}_c${concurrency}_j${job_count}_l${job_length}_timed_repost asynqro::asynqro Qt5::Core)
-                        set(ALL_BENCHMARKS ${ALL_BENCHMARKS} asynqro_qt_f${use_futures}_t${task_mode}_ph${preheat}_il${idle_loops}_c${concurrency}_j${job_count}_l${job_length}_timed_repost)
-                    endforeach()
-                endforeach()
-            endforeach()
-
         endforeach()
     endforeach()
 endforeach()
@@ -150,7 +112,7 @@ foreach(job_count ${EMPTY_JOBS_COUNT})
         target_compile_definitions(${system}_j${job_count}_empty_avalanche PRIVATE
             "JOBS_COUNT=${job_count}"
             )
-        target_link_libraries(${system}_j${job_count}_empty_avalanche ${Boost_LIBRARIES} Qt5::Concurrent)
+        target_link_libraries(${system}_j${job_count}_empty_avalanche ${Boost_LIBRARIES} Qt5::Concurrent TBB::tbb)
         set(ALL_BENCHMARKS ${ALL_BENCHMARKS} ${system}_j${job_count}_empty_avalanche)
     endforeach()
 
@@ -181,7 +143,7 @@ foreach(job_count ${TIMED_JOBS_COUNT})
                 "JOBS_COUNT=${job_count}"
                 "JOB_LENGTH=${job_length}"
                 )
-            target_link_libraries(${system}_j${job_count}_l${job_length}_timed_avalanche ${Boost_LIBRARIES}  Qt5::Concurrent)
+            target_link_libraries(${system}_j${job_count}_l${job_length}_timed_avalanche ${Boost_LIBRARIES}  Qt5::Concurrent TBB::tbb)
             set(ALL_BENCHMARKS ${ALL_BENCHMARKS} ${system}_j${job_count}_l${job_length}_timed_avalanche)
         endforeach()
 
