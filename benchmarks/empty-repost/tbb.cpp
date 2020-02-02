@@ -1,8 +1,7 @@
-#include <tbb/tbb.h>
-
 #include <chrono>
 #include <future>
 #include <iostream>
+#include <tbb/tbb.h>
 #include <thread>
 #include <vector>
 
@@ -20,28 +19,26 @@
 
 struct RepostJob : public tbb::task
 {
-
     volatile size_t counter;
     long long int begin_count;
     std::promise<void> *waiter;
 
-    RepostJob(std::promise<void> *waiter)
-        : counter(0), waiter(waiter)
+    RepostJob(std::promise<void> *waiter) : counter(0), waiter(waiter)
     {
         begin_count = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     }
 
-    RepostJob(const RepostJob& other)
+    RepostJob(const RepostJob &other)
     {
         counter = other.counter;
         begin_count = other.begin_count;
         waiter = other.waiter;
     }
 
-    task* execute() override
+    task *execute() override
     {
         if (++counter < JOBS_COUNT) {
-            RepostJob& a = *new(allocate_root()) RepostJob(*this);
+            RepostJob &a = *new (allocate_root()) RepostJob(*this);
             tbb::task::enqueue(a);
         } else {
             long long int end_count = std::chrono::high_resolution_clock::now().time_since_epoch().count();
@@ -66,7 +63,7 @@ int main(int, const char *[])
         std::promise<void> waiters[CONCURRENCY];
 
         for (auto &waiter : waiters) {
-            RepostJob& a = *new(tbb::task::allocate_root()) RepostJob(&waiter);
+            RepostJob &a = *new (tbb::task::allocate_root()) RepostJob(&waiter);
             tbb::task::enqueue(a);
         }
 

@@ -1,8 +1,7 @@
-#include <tbb/tbb.h>
-
 #include <chrono>
 #include <future>
 #include <iostream>
+#include <tbb/tbb.h>
 #include <thread>
 #include <vector>
 
@@ -12,10 +11,10 @@
 
 struct AvalancheJob : public tbb::task
 {
-    long long* resultPlace;
-    long long* spentPlace;
-    AvalancheJob(long long* resultPlace, long long* spentPlace) : resultPlace(resultPlace), spentPlace(spentPlace) {}
-    task* execute() override
+    long long *resultPlace;
+    long long *spentPlace;
+    AvalancheJob(long long *resultPlace, long long *spentPlace) : resultPlace(resultPlace), spentPlace(spentPlace) {}
+    task *execute() override
     {
         long long innerBegin = std::chrono::high_resolution_clock::now().time_since_epoch().count();
         long long newId = 0;
@@ -47,7 +46,7 @@ int main(int, const char *[])
         memset(spent, 0, sizeof(long long) * JOBS_COUNT);
         long long begin = std::chrono::high_resolution_clock::now().time_since_epoch().count();
         for (int i = 0; i < JOBS_COUNT; ++i) {
-            AvalancheJob& a = *new(tbb::task::allocate_root()) AvalancheJob(&finished[i], &spent[i]);
+            AvalancheJob &a = *new (tbb::task::allocate_root()) AvalancheJob(&finished[i], &spent[i]);
             tbb::task::enqueue(a);
         }
 

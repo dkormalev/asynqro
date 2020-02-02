@@ -1,8 +1,7 @@
-#include <tbb/tbb.h>
-
 #include <chrono>
 #include <future>
 #include <iostream>
+#include <tbb/tbb.h>
 #include <thread>
 #include <vector>
 
@@ -26,20 +25,18 @@ static std::atomic_llong USEFUL{0};
 
 struct RepostJob : public tbb::task
 {
-
     volatile size_t counter;
     long long int begin_count;
     long long int offset;
     std::promise<void> *waiter;
 
-    RepostJob(std::promise<void> *waiter)
-        : counter(0), waiter(waiter)
+    RepostJob(std::promise<void> *waiter) : counter(0), waiter(waiter)
     {
         begin_count = std::chrono::high_resolution_clock::now().time_since_epoch().count();
         offset = 0;
     }
 
-    RepostJob(const RepostJob& other)
+    RepostJob(const RepostJob &other)
     {
         counter = other.counter;
         begin_count = other.begin_count;
@@ -47,7 +44,7 @@ struct RepostJob : public tbb::task
         waiter = other.waiter;
     }
 
-    task* execute() override
+    task *execute() override
     {
         if (++counter < JOBS_COUNT) {
             long long innerBegin = std::chrono::high_resolution_clock::now().time_since_epoch().count();
@@ -59,7 +56,7 @@ struct RepostJob : public tbb::task
                 }
             }
             offset += (std::chrono::high_resolution_clock::now().time_since_epoch().count() - innerBegin);
-            RepostJob& a = *new(allocate_root()) RepostJob(*this);
+            RepostJob &a = *new (allocate_root()) RepostJob(*this);
             tbb::task::spawn(a);
         } else {
             long long int end_count = std::chrono::high_resolution_clock::now().time_since_epoch().count();
@@ -88,7 +85,7 @@ int main(int, const char *[])
 
         long long totalBegin = std::chrono::high_resolution_clock::now().time_since_epoch().count();
         for (auto &waiter : waiters) {
-            RepostJob& a = *new(tbb::task::allocate_root()) RepostJob(&waiter);
+            RepostJob &a = *new (tbb::task::allocate_root()) RepostJob(&waiter);
             tbb::task::enqueue(a);
         }
 
