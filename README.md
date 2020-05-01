@@ -1,6 +1,6 @@
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![Release](https://img.shields.io/github/release/dkormalev/asynqro.svg)](https://github.com/dkormalev/asynqro/releases/latest)
-[![Conan](https://api.bintray.com/packages/dkormalev/conan/asynqro%3Adkormalev/images/download.svg)](https://bintray.com/dkormalev/conan/asynqro%3Adkormalev/_latestVersion)<br/>
+[![Conan](https://api.bintray.com/packages/bincrafters/public-conan/asynqro%3Abincrafters/images/download.svg) ](https://bintray.com/bincrafters/public-conan/asynqro%3Abincrafters/_latestVersion)<br/>
 [![Travis-CI Build Status](https://travis-ci.com/dkormalev/asynqro.svg?branch=develop)](https://travis-ci.com/dkormalev/asynqro)
 [![Appveyor Build Status](https://ci.appveyor.com/api/projects/status/github/dkormalev/asynqro?svg=true&branch=develop)](https://ci.appveyor.com/project/dkormalev/asynqro)<br/>
 [![Code Coverage](https://codecov.io/gh/dkormalev/asynqro/branch/master/graph/badge.svg)](https://codecov.io/gh/dkormalev/asynqro)
@@ -11,7 +11,7 @@
 Asynqro is a small library with purpose to make C++ programming easier by giving developers rich monadic Future API (mostly inspired by Future API in Scala language). This library is another implementation of ideas in https://github.com/opensoft/proofseed (now moved to asynqro usage, for historic purposes check tags before 02/25/19), but has much cleaner API, refined task scheduling logic and is not tied to any framework.
 
 ### Dependencies
-- **C++17**: Should work with Clang `>=6`, GCC `>=7` and MSVC `>=16`. Tested with Clang9 ([travis](https://travis-ci.com/dkormalev/asynqro)), GCC9 ([travis](https://travis-ci.com/dkormalev/asynqro)) and MSVC16 (VS2019, [appveyor](https://ci.appveyor.com/project/dkormalev/asynqro)). Also tested for compatibility with clang 6.0 and gcc 7.4 on Ubuntu Bionic image (([travis](https://travis-ci.com/dkormalev/asynqro))). Conan packages exist for GCC 7/8/9@Linux, Clang 6/7/8@Linux, Apple-Clang 10/11@MacOSX, MSVC16@Windows.
+- **C++17**: Should work with Clang `>=6`, GCC `>=7` and MSVC `>=16`. Tested with Clang9 ([travis](https://travis-ci.com/dkormalev/asynqro)), GCC9 ([travis](https://travis-ci.com/dkormalev/asynqro)) and MSVC16 (VS2019, [appveyor](https://ci.appveyor.com/project/dkormalev/asynqro)). Also tested for compatibility with clang 6.0 and gcc 7.4 on Ubuntu Bionic image ([travis](https://travis-ci.com/dkormalev/asynqro)). Conan packages available with help of [bincrafters](https://github.com/bincrafters/conan-asynqro).
 - **CMake** `>= 3.12.0`
 - **GoogleTest**. Will be automatically downloaded during cmake phase.
 - **lcov** `>= 1.14`. Used for code coverage calculation, not needed for regular build.

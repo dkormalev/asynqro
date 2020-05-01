@@ -16,11 +16,7 @@ platform:
 environment:
   matrix:
     - with_qt: ON
-      conan_build: OFF
     - with_qt: OFF
-      conan_build: OFF
-    - with_qt: OFF
-      conan_build: ON
 
 skip_commits:
   files:
@@ -60,38 +56,3 @@ build:
   parallel: true
 test_script:
 - echo "Skipping testing on Appveyor (check travis for tests)"
-
-for:
--
-  matrix:
-      only:
-        - conan_build: ON
-
-  skip_tags: false
-  skip_non_tags: true
-  environment:
-    PYTHON: "C:\\Python37-x64"
-    CONAN_USERNAME: "dkormalev"
-    CONAN_UPLOAD: "https://api.bintray.com/conan/dkormalev/conan"
-    CONAN_BUILD_TYPES: "Release,Debug"
-    CONAN_UPLOAD_ONLY_WHEN_TAG: 1
-    CPT_TEST_FOLDER: "conan_tests"
-
-  init:
-  - if "%APPVEYOR_BUILD_WORKER_IMAGE%"=="Visual Studio 2019" (
-      set CONAN_VISUAL_VERSIONS=16
-    )
-  - set PATH=%PATH%;%PYTHON%/Scripts/
-
-  install:
-  - pip.exe install conan --upgrade
-  - pip.exe install conan_package_tools
-
-  before_build:
-  - conan user # It creates the conan data directory
-
-  build_script:
-  - python .ci/conan/build.py
-
-  test_script:
-  - echo Done!
