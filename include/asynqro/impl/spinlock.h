@@ -30,7 +30,7 @@
 
 #if defined(_MSC_VER)
 #    include <intrin.h>
-#elif !defined(__arm__)
+#elif !defined(__arm__) && !defined(__aarch64__)
 #    include <immintrin.h>
 #endif
 
@@ -56,7 +56,7 @@ public:
     {
         bool result = !m_lock.test_and_set(std::memory_order_acq_rel);
         for (size_t i = 0; !result && i < 1024; ++i) {
-#if defined(__arm__)
+#if defined(__arm__) || defined(__aarch64__)
             __asm__ __volatile__("yield");
 #else
             _mm_pause();
