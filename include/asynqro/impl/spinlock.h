@@ -35,7 +35,7 @@
 #endif
 
 namespace asynqro::detail {
-class SpinLock
+class SpinLock final
 {
 public:
     SpinLock() noexcept = default;
@@ -51,6 +51,8 @@ public:
         while (!tryLock())
             std::this_thread::sleep_for(500us);
     }
+
+    inline bool try_lock() noexcept { return tryLock(); }
 
     inline bool tryLock() noexcept
     {
@@ -73,7 +75,7 @@ private:
     std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
 };
 
-class SpinLockHolder
+class SpinLockHolder final
 {
 public:
     explicit SpinLockHolder(SpinLock *lock) noexcept : m_lock(lock)
