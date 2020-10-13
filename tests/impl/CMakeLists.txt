@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.12.0)
 project(asynqro_impl_tests LANGUAGES CXX)
 
-
 add_executable(asynqro_impl_tests
     main.cpp
     containers_traverse_test.cpp
@@ -20,6 +19,9 @@ set_target_properties(asynqro_impl_tests PROPERTIES
 )
 
 target_link_libraries(asynqro_impl_tests asynqro::asynqro gtest)
+target_include_directories(asynqro_impl_tests PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
+    )
 if (ASYNQRO_QT_SUPPORT)
     target_sources(asynqro_impl_tests PRIVATE containers_traverse_map_no_sockets_test.cpp)
 endif()

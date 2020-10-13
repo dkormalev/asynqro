@@ -39,6 +39,10 @@ set_target_properties(asynqro_future_tests PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )
 
+target_include_directories(asynqro_future_tests PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
+    )
+
 if (ASYNQRO_QT_SUPPORT)
     set_target_properties(asynqro_future_tests PROPERTIES AUTOMOC ON)
 endif()
