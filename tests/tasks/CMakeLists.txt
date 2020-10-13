@@ -19,6 +19,9 @@ set_target_properties(asynqro_tasks_tests PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )
 target_link_libraries(asynqro_tasks_tests asynqro::asynqro gtest)
+target_include_directories(asynqro_tasks_tests PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
+    )
 
 if (NOT DEFINED ENV{APPVEYOR})
     gtest_discover_tests(asynqro_tasks_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)
@@ -32,6 +35,9 @@ set_target_properties(asynqro_tasks_preheated_tests PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )
 target_link_libraries(asynqro_tasks_preheated_tests asynqro::asynqro gtest)
+target_include_directories(asynqro_tasks_preheated_tests PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
+    )
 
 if (NOT DEFINED ENV{APPVEYOR})
     gtest_discover_tests(asynqro_tasks_preheated_tests DISCOVERY_TIMEOUT 30 PROPERTIES TIMEOUT 30)
@@ -45,6 +51,9 @@ set_target_properties(asynqro_tasks_preheated_intensive_tests PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )
 target_link_libraries(asynqro_tasks_preheated_intensive_tests asynqro::asynqro gtest)
+target_include_directories(asynqro_tasks_preheated_intensive_tests PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
+    )
 
 
 if (NOT DEFINED ENV{APPVEYOR})
