@@ -97,7 +97,7 @@ TEST_F(TasksTest, singleDeferredTask)
     TestFuture<int> result = run([innerPromise]() { return innerPromise.future(); });
     EXPECT_FALSE(result.isCompleted());
     innerPromise.success(42);
-    result.wait(10000);
+    result.wait(10s);
     ASSERT_TRUE(result.isCompleted());
     EXPECT_TRUE(result.isSucceeded());
     EXPECT_FALSE(result.isFailed());
@@ -110,7 +110,7 @@ TEST_F(TasksTest, singleDeferredTaskWithCastedFailure)
     Future<int, int> result = run<TaskRunner<ConvertingRunnerInfo>>([innerPromise]() { return innerPromise.future(); });
     EXPECT_FALSE(result.isCompleted());
     innerPromise.success(42);
-    result.wait(10000);
+    result.wait(10s);
     ASSERT_TRUE(result.isCompleted());
     EXPECT_TRUE(result.isSucceeded());
     EXPECT_FALSE(result.isFailed());
@@ -121,7 +121,7 @@ TEST_F(TasksTest, singleVoidTask)
 {
     std::atomic_bool flag{false};
     TestFuture<bool> result = run([&flag]() { flag = true; });
-    result.wait(10000);
+    result.wait(10s);
     ASSERT_TRUE(result.isCompleted());
     EXPECT_TRUE(result.isSucceeded());
     EXPECT_FALSE(result.isFailed());
@@ -134,7 +134,7 @@ TEST_F(TasksTest, singleRunAndForgetTask)
     TestPromise<TasksTestResult<int>> p;
     runAndForget([p]() { p.success(pairedResult(42)); });
     auto f = p.future();
-    f.wait(10000);
+    f.wait(10s);
     ASSERT_TRUE(f.isCompleted());
     EXPECT_TRUE(f.isSucceeded());
     EXPECT_FALSE(f.isFailed());
@@ -158,9 +158,9 @@ TEST_F(TasksTest, taskCancelation)
     CancelableTestFuture<int> f2 = run([]() { return 42; }, TaskType::Custom, 11);
     f.cancel();
     blockingPromise.success(1);
-    f.wait(10000);
+    f.wait(10s);
     ASSERT_TRUE(f.isCompleted());
-    f2.wait(10000);
+    f2.wait(10s);
     ASSERT_TRUE(f2.isCompleted());
     EXPECT_EQ(42, f2.result());
 
@@ -186,9 +186,9 @@ TEST_F(TasksTest, deferedTaskCancelation)
     CancelableTestFuture<int> f2 = run([]() { return 42; }, TaskType::Custom, 11);
     f.cancel();
     blockingPromise.success(1);
-    f.wait(10000);
+    f.wait(10s);
     ASSERT_TRUE(f.isCompleted());
-    f2.wait(10000);
+    f2.wait(10s);
     ASSERT_TRUE(f2.isCompleted());
     EXPECT_EQ(42, f2.result());
 
@@ -208,9 +208,9 @@ TEST_F(TasksTest, voidTaskCancelation)
     CancelableTestFuture<int> f2 = run([]() { return 42; }, TaskType::Custom, 11);
     f.cancel();
     blockingPromise.success(1);
-    f.wait(10000);
+    f.wait(10s);
     ASSERT_TRUE(f.isCompleted());
-    f2.wait(10000);
+    f2.wait(10s);
     ASSERT_TRUE(f2.isCompleted());
     EXPECT_EQ(42, f2.result());
 
@@ -231,14 +231,14 @@ TEST_F(TasksTest, taskPriority)
     auto emergency = run([]() { return 42; }, TaskType::Custom, 11, TaskPriority::Emergency);
 
     blockingPromise.success(1);
-    emergency.wait(10000);
+    emergency.wait(10s);
     ASSERT_TRUE(emergency.isCompleted());
     EXPECT_TRUE(emergency.isSucceeded());
     EXPECT_EQ(42, emergency.result());
     EXPECT_FALSE(postponed.isCompleted());
 
     blockingPromise2.success(1);
-    postponed.wait(10000);
+    postponed.wait(10s);
     ASSERT_TRUE(postponed.isCompleted());
     EXPECT_TRUE(postponed.isSucceeded());
     EXPECT_EQ(24, postponed.result());
@@ -250,7 +250,7 @@ TEST_F(TasksTest, singleDeferredTaskWithFailure)
     TestFuture<int> result = run([innerPromise]() { return innerPromise.future(); });
     EXPECT_FALSE(result.isCompleted());
     innerPromise.failure("failed");
-    result.wait(10000);
+    result.wait(10s);
     ASSERT_TRUE(result.isCompleted());
     EXPECT_FALSE(result.isSucceeded());
     EXPECT_TRUE(result.isFailed());
@@ -264,7 +264,7 @@ TEST_F(TasksTest, singleDeferredTaskFailureWithCastedFailure)
     Future<int, int> result = run<TaskRunner<ConvertingRunnerInfo>>([innerPromise]() { return innerPromise.future(); });
     EXPECT_FALSE(result.isCompleted());
     innerPromise.failure("failed");
-    result.wait(10000);
+    result.wait(10s);
     ASSERT_TRUE(result.isCompleted());
     EXPECT_FALSE(result.isSucceeded());
     EXPECT_TRUE(result.isFailed());
@@ -289,6 +289,8 @@ TEST_F(TasksTest, multipleTasks)
     ready = true;
     std::set<std::thread::id> threads;
     for (int i = n - 1; i >= 0; --i) {
+        results[static_cast<size_t>(i)].wait(10s);
+        ASSERT_TRUE(results[static_cast<size_t>(i)].isSucceeded());
         auto result = results[static_cast<size_t>(i)].result();
         threads.insert(result.first);
         EXPECT_NE(currentThread(), result.first);
@@ -320,8 +322,11 @@ TEST_F(TasksTest, multipleTasksOverCapacity)
     for (int i = 0; i < n; ++i)
         EXPECT_FALSE(results[static_cast<size_t>(i)].isCompleted());
     ready = true;
-    for (int i = 0; i < n; ++i)
+    for (int i = 0; i < n; ++i) {
+        results[static_cast<size_t>(i)].wait(10s);
+        ASSERT_TRUE(results[static_cast<size_t>(i)].isSucceeded());
         EXPECT_EQ(i * 2, results[static_cast<size_t>(i)].result());
+    }
 }
 
 TEST_F(TasksTest, multipleTasksOverChangedCapacity)
@@ -349,8 +354,11 @@ TEST_F(TasksTest, multipleTasksOverChangedCapacity)
     for (int i = 0; i < n; ++i)
         EXPECT_FALSE(results[static_cast<size_t>(i)].isCompleted());
     ready = true;
-    for (int i = 0; i < n; ++i)
+    for (int i = 0; i < n; ++i) {
+        results[static_cast<size_t>(i)].wait(10s);
+        ASSERT_TRUE(results[static_cast<size_t>(i)].isSucceeded());
         EXPECT_EQ(i * 2, results[static_cast<size_t>(i)].result());
+    }
 }
 
 TEST_F(TasksTest, multipleIntensiveTasksOverCapacity)
@@ -378,8 +386,11 @@ TEST_F(TasksTest, multipleIntensiveTasksOverCapacity)
     for (int i = 0; i < n; ++i)
         EXPECT_FALSE(results[static_cast<size_t>(i)].isCompleted());
     ready = true;
-    for (int i = 0; i < n; ++i)
+    for (int i = 0; i < n; ++i) {
+        results[static_cast<size_t>(i)].wait(10s);
+        ASSERT_TRUE(results[static_cast<size_t>(i)].isSucceeded());
         EXPECT_EQ(i * 2, results[static_cast<size_t>(i)].result());
+    }
 }
 
 TEST_F(TasksTest, multipleCustomTasksOverCapacity)
@@ -419,8 +430,13 @@ TEST_F(TasksTest, multipleCustomTasksOverCapacity)
         EXPECT_FALSE(otherResults[static_cast<size_t>(i)].isCompleted());
     }
     ready = true;
+
     for (int i = 0; i < n; ++i) {
+        results[static_cast<size_t>(i)].wait(10s);
+        ASSERT_TRUE(results[static_cast<size_t>(i)].isSucceeded());
         EXPECT_EQ(i * 2, results[static_cast<size_t>(i)].result());
+        otherResults[static_cast<size_t>(i)].wait(10s);
+        ASSERT_TRUE(otherResults[static_cast<size_t>(i)].isSucceeded());
         EXPECT_EQ(i * 3, otherResults[static_cast<size_t>(i)].result());
     }
 }
@@ -444,7 +460,7 @@ TEST_F(TasksTest, multipleTasksWithFailure)
         EXPECT_FALSE(results[static_cast<size_t>(i)].isCompleted());
     ready = true;
     for (int i = 0; i < n; ++i) {
-        results[static_cast<size_t>(i)].wait(10000);
+        results[static_cast<size_t>(i)].wait(10s);
         ASSERT_TRUE(results[static_cast<size_t>(i)].isCompleted()) << i;
         if (i % 2) {
             ASSERT_TRUE(results[static_cast<size_t>(i)].isFailed()) << i;
@@ -470,7 +486,7 @@ TEST_F(TasksTest, mappedTaskWithFailure)
     TestFuture<int> mappedFuture = future.map([](int x) -> int { return WithTestFailure(std::to_string(x)); });
     EXPECT_FALSE(future.isCompleted());
     ready = true;
-    mappedFuture.wait(10000);
+    mappedFuture.wait(10s);
     ASSERT_TRUE(future.isCompleted());
     ASSERT_TRUE(future.isSucceeded());
     EXPECT_EQ(42, future.result());
@@ -488,10 +504,10 @@ TEST_F(TasksTest, pause)
     dispatcher->resumeCustomTag(42);
     dispatcher->pauseCustomTag(42);
     auto f = run(TaskType::Custom, 42, []() {});
-    f.wait(500);
+    f.wait(500ms);
     ASSERT_FALSE(f.isCompleted());
     dispatcher->resumeCustomTag(42);
-    f.wait(100);
+    f.wait(100ms);
     ASSERT_TRUE(f.isCompleted());
     ASSERT_TRUE(f.isSucceeded());
 }
@@ -503,7 +519,7 @@ TEST_F(TasksTest, noPauseForDefaultCustomSubpool)
     dispatcher->resumeCustomTag(0);
     dispatcher->pauseCustomTag(0);
     auto f = run(TaskType::Custom, 0, []() {});
-    f.wait(100);
+    f.wait(100ms);
     ASSERT_TRUE(f.isCompleted());
     ASSERT_TRUE(f.isSucceeded());
 }
@@ -516,7 +532,7 @@ TEST_F(TasksTest, pauseDoesntBlockOtherSubpools)
     dispatcher->resumeCustomTag(42);
     dispatcher->pauseCustomTag(42);
     auto f = run(TaskType::Custom, 42, []() {});
-    f.wait(500);
+    f.wait(500ms);
     ASSERT_FALSE(f.isCompleted());
 
     run(TaskType::Custom, 42, []() {});
@@ -525,22 +541,22 @@ TEST_F(TasksTest, pauseDoesntBlockOtherSubpools)
     run(TaskType::Custom, 42, []() {});
 
     auto f2 = run(TaskType::Custom, 21, []() {});
-    f2.wait(100);
+    f2.wait(100ms);
     ASSERT_TRUE(f2.isCompleted());
     ASSERT_TRUE(f2.isSucceeded());
 
     auto f3 = run(TaskType::Custom, 0, []() {});
-    f3.wait(100);
+    f3.wait(100ms);
     ASSERT_TRUE(f3.isCompleted());
     ASSERT_TRUE(f3.isSucceeded());
 
     auto f4 = run(TaskType::Intensive, 0, []() {});
-    f4.wait(100);
+    f4.wait(100ms);
     ASSERT_TRUE(f4.isCompleted());
     ASSERT_TRUE(f4.isSucceeded());
 
     dispatcher->resumeCustomTag(42);
-    f.wait(100);
+    f.wait(100ms);
     ASSERT_TRUE(f.isCompleted());
     ASSERT_TRUE(f.isSucceeded());
 }
@@ -553,10 +569,10 @@ TEST_F(TasksTest, pauseDoesntAffectCapacity)
     dispatcher->resumeCustomTag(42);
     dispatcher->pauseCustomTag(42);
     auto f = run(TaskType::Custom, 42, []() {});
-    f.wait(500);
+    f.wait(500ms);
     ASSERT_FALSE(f.isCompleted());
     dispatcher->resumeCustomTag(42);
-    f.wait(100);
+    f.wait(100ms);
     ASSERT_TRUE(f.isCompleted());
     ASSERT_TRUE(f.isSucceeded());
 
@@ -575,6 +591,8 @@ TEST_F(TasksTest, pauseDoesntAffectCapacity)
     ready = true;
     std::set<std::thread::id> threads;
     for (int i = n - 1; i >= 0; --i) {
+        results[static_cast<size_t>(i)].wait(10s);
+        ASSERT_TRUE(results[static_cast<size_t>(i)].isSucceeded());
         auto result = results[static_cast<size_t>(i)].result();
         threads.insert(result.first);
         EXPECT_NE(currentThread(), result.first);
