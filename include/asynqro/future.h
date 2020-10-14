@@ -183,17 +183,24 @@ public:
             std::condition_variable waiter;
             std::unique_lock lock(mutex);
             bool wasInSameThread = false;
-            onComplete([&waiter, &mutex, &wasInSameThread, waitingThread = std::this_thread::get_id()]() {
+            std::atomic_bool canExit = false;
+            onComplete([&waiter, &mutex, &wasInSameThread, &canExit, waitingThread = std::this_thread::get_id()]() {
                 if (std::this_thread::get_id() == waitingThread) {
+                    canExit.store(true, std::memory_order_relaxed);
                     wasInSameThread = true;
                     return;
                 }
                 mutex.lock(); // We wait here for waiter start
                 mutex.unlock();
                 waiter.notify_all();
+                canExit.store(true, std::memory_order_relaxed);
             });
-            if (!wasInSameThread)
+            if (!wasInSameThread) {
                 waiter.wait(lock);
+                // We need to wait here to make sure we are not operating with any dangling references in other thread
+                while (!canExit.load(std::memory_order_relaxed)) {
+                }
+            }
         } else {
             try {
                 auto mutex = std::make_shared<std::mutex>();
