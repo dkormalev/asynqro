@@ -56,10 +56,31 @@ static const int32_t DEFAULT_BOUND_CAPACITY = DEFAULT_TOTAL_CAPACITY / 4;
 static constexpr uint64_t INTENSIVE_SUBPOOL = packPoolInfo(TaskType::Intensive, 0);
 
 template <size_t N>
-int32_t firstSetBit(const std::bitset<N> &bitset, int32_t start = 0) noexcept
+int32_t firstSetBit(const std::bitset<N> &bitset, int32_t left = 0, int32_t right = N) noexcept
 {
-    for (int32_t i = start; i < N; ++i) {
+    for (int32_t i = left; i < right; ++i) {
         if (bitset[i])
+            return i;
+    }
+    return -1;
+}
+
+template <size_t N>
+int32_t firstSetBit(const std::bitset<N> &bitset, const std::bitset<N> &exclude, int32_t left = 0,
+                    int32_t right = N) noexcept
+{
+    for (int32_t i = left; i < right; ++i) {
+        if (bitset[i] && !exclude[i])
+            return i;
+    }
+    return -1;
+}
+
+template <size_t N>
+int32_t lastSetBit(const std::bitset<N> &bitset, const std::bitset<N> &exclude, int32_t left = 0, int32_t right = N) noexcept
+{
+    for (int32_t i = right - 1; i >= left; --i) {
+        if (bitset[i] && !exclude[i])
             return i;
     }
     return -1;
@@ -90,7 +111,9 @@ private:
 
     std::vector<Worker *> allWorkers;
     //TODO: replace with dynamic bitset implementation
-    std::bitset<MAX_ALLOWED_CAPACITY> availableWorkers; // Indices in allWorkers vector, except bound
+    std::bitset<MAX_ALLOWED_CAPACITY> availableWorkers; // Indices in allWorkers vector, including bound
+
+    std::bitset<MAX_ALLOWED_CAPACITY> boundWorkers; // Indices in allWorkers vector of workers who are bound to at least one tag
 
     std::unordered_map<int32_t, int32_t> tagToWorkerBindings; // tag -> index in allWorkers vector
     std::unordered_map<int32_t, int> workersBindingsCount; // Index in allWorkers vector -> amount of tags bound
@@ -284,7 +307,7 @@ void TasksDispatcher::insertTaskInfo(std::function<void()> &&wrappedTask, TaskTy
             return;
         }
     } else if (d_ptr->availableWorkers.any() && d_ptr->tasksQueue.empty()) {
-        int32_t workerId = firstSetBit(d_ptr->availableWorkers);
+        int32_t workerId = lastSetBit(d_ptr->availableWorkers, d_ptr->boundWorkers, 0, d_ptr->allWorkers.size());
         if (d_ptr->scheduleSingleTask(taskInfo, workerId)) {
             lock.unlock();
             d_ptr->allWorkers[static_cast<size_t>(workerId)]->addTask(std::move(taskInfo));
@@ -341,7 +364,12 @@ void TasksDispatcherPrivate::schedule(int32_t workerId) noexcept
     if (availableWorkers.none() && !createNewWorkerIfPossible())
         return;
 
-    workerId = (workerId < 0 || !availableWorkers[workerId]) ? firstSetBit(availableWorkers) : workerId;
+    workerId = (workerId < 0 || !availableWorkers[workerId])
+                   ? lastSetBit(availableWorkers, boundWorkers, 0, allWorkers.size())
+                   : workerId;
+
+    if (workerId == -1)
+        workerId = firstSetBit(availableWorkers, 0, allWorkers.size());
 
     int32_t boundWorkerId = -1;
     bool newBoundTask = false;
@@ -356,24 +384,15 @@ void TasksDispatcherPrivate::schedule(int32_t workerId) noexcept
                 boundWorkerId = tagToWorkerBindings[task.tag];
             } else if (static_cast<int32_t>(workersBindingsCount.size()) < boundCapacity) {
                 newBoundTask = true;
-                if (workersBindingsCount.count(workerId)) {
-                    for (int32_t found = firstSetBit(availableWorkers); found != -1;
-                         found = firstSetBit(availableWorkers, found + 1)) {
-                        if (!workersBindingsCount.count(found)) {
-                            boundWorkerId = found;
-                            break;
-                        }
-                    }
-                    if (boundWorkerId < 0 && createNewWorkerIfPossible())
-                        boundWorkerId = static_cast<int32_t>(allWorkers.size()) - 1;
-                } else {
-                    boundWorkerId = workerId;
-                }
+                // We discard workerId here, because it is taken from the end of the list and we are trying to keep bound at the beginning
+                boundWorkerId = firstSetBit(availableWorkers, boundWorkers, 0, allWorkers.size());
+                if (boundWorkerId < 0 && createNewWorkerIfPossible())
+                    boundWorkerId = static_cast<int32_t>(allWorkers.size()) - 1;
             } else {
                 newBoundTask = true;
                 int foundMin = std::numeric_limits<int>::max();
-                for (int32_t found = firstSetBit(availableWorkers); found != -1;
-                     found = firstSetBit(availableWorkers, found + 1)) {
+                for (int32_t found = firstSetBit(boundWorkers, 0, allWorkers.size()); found != -1;
+                     found = firstSetBit(boundWorkers, found + 1, allWorkers.size())) {
                     auto bindingIt = workersBindingsCount.find(found);
                     if (bindingIt != workersBindingsCount.end() && bindingIt->second < foundMin) {
                         boundWorkerId = found;
@@ -383,6 +402,7 @@ void TasksDispatcherPrivate::schedule(int32_t workerId) noexcept
             }
             if (boundWorkerId >= 0) {
                 if (newBoundTask) {
+                    boundWorkers[boundWorkerId] = true;
                     ++workersBindingsCount[boundWorkerId];
                     tagToWorkerBindings[task.tag] = boundWorkerId;
                 }
@@ -394,6 +414,8 @@ void TasksDispatcherPrivate::schedule(int32_t workerId) noexcept
                 continue;
             }
         } /* not threadbound */ else if (scheduleSingleTask(task, workerId)) {
+            if (boundWorkers[workerId] && createNewWorkerIfPossible())
+                workerId = allWorkers.size() - 1;
             TaskInfo selectedTask = std::move(task);
             tasksQueue.erase(it);
             lock.unlock();

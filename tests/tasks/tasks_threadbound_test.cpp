@@ -37,6 +37,40 @@ TEST_F(TasksThreadBoundTest, threadBinding)
     EXPECT_EQ(secondResult.result().first, firstResult.result().first);
 }
 
+TEST_F(TasksThreadBoundTest, threadBindingWithSlowNeighbor)
+{
+    std::atomic_bool secondStarted{false};
+    std::atomic_bool secondCanFinish{false};
+
+    auto first = []() { return pairedResult(1); };
+
+    auto second = [&secondStarted, &secondCanFinish]() {
+        secondStarted = true;
+        while (!secondCanFinish)
+            ;
+        return pairedResult(1);
+    };
+
+    auto firstResult = run(first, TaskType::ThreadBound, 1);
+    firstResult.wait(5s);
+    ASSERT_TRUE(firstResult.isCompleted());
+
+    auto secondResult = run(second);
+    {
+        auto timeout = std::chrono::high_resolution_clock::now() + 10s;
+        while (!secondStarted && std::chrono::high_resolution_clock::now() < timeout)
+            ;
+    }
+
+    auto thirdResult = run(first, TaskType::ThreadBound, 1);
+    thirdResult.wait(5s);
+    EXPECT_TRUE(thirdResult.isCompleted());
+
+    secondCanFinish = true;
+    secondResult.wait(5s);
+    ASSERT_TRUE(secondResult.isCompleted());
+}
+
 TEST_F(TasksThreadBoundTest, threadBindingToDifferentKeys)
 {
     auto task = []() { return pairedResult(1); };
