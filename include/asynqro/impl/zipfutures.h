@@ -34,6 +34,7 @@ struct AsTuple
 {
     using type = std::tuple<T>;
     static constexpr type make(const T &v) { return std::make_tuple(v); }
+    static constexpr type make(T &&v) { return std::make_tuple(std::move(v)); }
 };
 
 template <typename... T>
@@ -41,6 +42,7 @@ struct AsTuple<std::tuple<T...>>
 {
     using type = std::tuple<T...>;
     static constexpr type make(const std::tuple<T...> &v) { return v; }
+    static constexpr type make(std::tuple<T...> &&v) { return std::move(v); }
 };
 
 template <typename... T>
@@ -51,6 +53,7 @@ struct AsVariant
 {
     using type = std::variant<T>;
     static constexpr type make(const T &v) { return v; }
+    static constexpr type make(T &&v) { return std::move(v); }
 };
 
 template <typename... T>
@@ -58,6 +61,7 @@ struct AsVariant<std::variant<T...>>
 {
     using type = std::variant<T...>;
     static constexpr type make(const std::variant<T...> &v) { return v; }
+    static constexpr type make(std::variant<T...> &&v) { return std::move(v); }
 };
 
 template <typename T>
