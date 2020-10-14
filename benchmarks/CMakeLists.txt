@@ -167,6 +167,33 @@ foreach(job_count ${TIMED_JOBS_COUNT})
     endforeach()
 endforeach()
 
+## timed repost loaded
+foreach(job_count ${REPOST_TIMED_JOBS_COUNT})
+    foreach(job_length ${TIMED_JOB_LENGTH})
+        foreach(concurrency ${REPOST_CONCURRENCY})
+            foreach(task_mode ${ASYNQRO_TASK_MODE})
+                foreach(use_futures ${ASYNQRO_USE_FUTURES})
+                    foreach(idle_loops ${ASYNQRO_IDLE_LOOPS_AMOUNT})
+                        add_executable(asynqro_f${use_futures}_t${task_mode}_ph${preheat}_il${idle_loops}_c${concurrency}_j${job_count}_l${job_length}_timed_repost_loaded timed-repost-loaded/asynqro.cpp)
+                        target_compile_definitions(asynqro_f${use_futures}_t${task_mode}_ph${preheat}_il${idle_loops}_c${concurrency}_j${job_count}_l${job_length}_timed_repost_loaded PRIVATE
+                            "CONCURRENCY=${concurrency}"
+                            "JOBS_COUNT=${job_count}"
+                            "JOB_LENGTH=${job_length}"
+                            "TASK_MODE=${task_mode}"
+                            "WITH_FUTURES=${use_futures}"
+                            "WITH_PREHEAT=1"
+                            "IDLE_AMOUNT=${idle_loops}"
+                            )
+                        target_link_libraries(asynqro_f${use_futures}_t${task_mode}_ph${preheat}_il${idle_loops}_c${concurrency}_j${job_count}_l${job_length}_timed_repost_loaded asynqro::asynqro)
+                        set(ALL_BENCHMARKS ${ALL_BENCHMARKS} asynqro_f${use_futures}_t${task_mode}_ph${preheat}_il${idle_loops}_c${concurrency}_j${job_count}_l${job_length}_timed_repost_loaded)
+                    endforeach()
+                endforeach()
+            endforeach()
+
+        endforeach()
+    endforeach()
+endforeach()
+
 foreach(target ${ALL_BENCHMARKS})
     set_target_properties(${target} PROPERTIES
         CXX_STANDARD 17
