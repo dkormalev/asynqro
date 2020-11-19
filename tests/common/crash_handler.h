@@ -43,12 +43,6 @@ void signalHandler(int sig, siginfo_t *info, void *context)
     handlerAlreadyCalled = true;
 
     alarm(10);
-    ucontext_t *uc = (ucontext_t *)context;
-#    ifdef __linux__
-    void *caller = (void *)uc->uc_mcontext.fpregs->rip;
-#    else
-    void *caller = (void *)uc->uc_mcontext->__ss.__rip;
-#    endif
 
     std::cerr << "#######################################" << std::endl;
     std::cerr << "signal " << sig << " (" << strsignal(sig) << ")" << std::endl;
@@ -56,8 +50,9 @@ void signalHandler(int sig, siginfo_t *info, void *context)
     void *backtraceInfo[BACKTRACE_MAX_SIZE];
     int size = backtrace(backtraceInfo, BACKTRACE_MAX_SIZE);
 
-    backtraceInfo[0] = backtraceInfo[1];
-    backtraceInfo[1] = caller;
+#    ifdef __APPLE__
+    backtraceInfo[1] = (void *)((ucontext_t *)context)->uc_mcontext->__ss.__rip;
+#    endif
 
     char **backtraceArray = backtrace_symbols(backtraceInfo, size);
 
@@ -75,7 +70,7 @@ void signalHandler(int sig, siginfo_t *info, void *context)
     const int offset = 4;
 #    endif
 
-    for (int i = 0; i < size; ++i) {
+    for (int i = 1; i < size; ++i) {
 #    ifdef __linux__
         std::regex re(R"(^(.+)\((.*)\+([x0-9a-fA-F]*)\)\s+\[(.+)\]\s*$)");
 #    else
